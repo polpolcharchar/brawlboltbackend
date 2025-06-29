@@ -1,5 +1,5 @@
-from CompilerStructures.recursiveAttributeStructure import RecursiveAttributeStructure
-from CompilerStructures.serializable import Serializable
+from CompilerStructuresModule.CompilerStructures.recursiveAttributeStructure import RecursiveAttributeStructure
+from CompilerStructuresModule.CompilerStructures.serializable import Serializable
 
 
 class RAS_Container(Serializable):

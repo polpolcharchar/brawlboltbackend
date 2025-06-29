@@ -1,5 +1,5 @@
-from CompilerStructures.frequencyCompiler import FrequencyCompiler
-from CompilerStructures.globalResultCompiler import GlobalResultCompiler
+from CompilerStructuresModule.CompilerStructures.frequencyCompiler import FrequencyCompiler
+from CompilerStructuresModule.CompilerStructures.globalResultCompiler import GlobalResultCompiler
 
 
 class PlayerResultCompiler(GlobalResultCompiler):

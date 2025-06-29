@@ -1,6 +1,6 @@
-from CompilerStructures.globalResultCompiler import GlobalResultCompiler
-from CompilerStructures.playerResultCompiler import PlayerResultCompiler
-from CompilerStructures.serializable import Serializable
+from CompilerStructuresModule.CompilerStructures.globalResultCompiler import GlobalResultCompiler
+from CompilerStructuresModule.CompilerStructures.playerResultCompiler import PlayerResultCompiler
+from CompilerStructuresModule.CompilerStructures.serializable import Serializable
 
 
 class RecursiveAttributeStructure(Serializable):

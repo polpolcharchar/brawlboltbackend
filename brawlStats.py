@@ -1,15 +1,16 @@
 import math
 import boto3
 import json
-from CompilerStructures.frequencyCompiler import FrequencyCompiler
-from CompilerStructures.matchData import MatchData
-from CompilerStructures.rasContainer import RAS_Container
-from CompilerStructures.serializable import Serializable
+from CompilerStructuresModule.CompilerStructures.frequencyCompiler import FrequencyCompiler
+from CompilerStructuresModule.CompilerStructures.matchData import MatchData
+from CompilerStructuresModule.CompilerStructures.rasContainer import RAS_Container
+from CompilerStructuresModule.CompilerStructures.serializable import Serializable
 
 
 class BrawlStats(Serializable):
     def __init__(self, isGlobal, fromDict=None):
 
+        self.mapToModeOverrides = None
         self.isGlobal = isGlobal
 
         if fromDict is None:
@@ -22,7 +23,7 @@ class BrawlStats(Serializable):
             self.showdown_rank_compilers = {key: FrequencyCompiler(value) for key, value in fromDict['showdown_rank_compilers'].items()}
     
     def exclude_attributes(self):
-        return ["isGlobal"]
+        return ["isGlobal", "mapToModeOverrides"]
 
     def handleBattles(self, battles, player_tag=""):
         if not self.isGlobal and player_tag == "":
@@ -217,10 +218,8 @@ class BrawlStats(Serializable):
         else:
             return game['battle']['rank'] <= math.floor(len(game['battle']['teams']) / 2)
 
-    mapToModeOverrides = None
     def getMode(self, game):
         def fetchAndAssignOverrides():
-            global mapToModeOverrides
             DYNAMODB_REGION = 'us-west-1'
             GLOBAL_STATS_TABLE = "BrawlStarsMapToModeOverrides"
             dynamodb = boto3.client("dynamodb", region_name=DYNAMODB_REGION)
@@ -234,20 +233,20 @@ class BrawlStats(Serializable):
                 if 'Item' in response and 'overrides' in response['Item']:
                     overrides_raw = response['Item']['overrides']['S']
                     overrides = json.loads(overrides_raw)
-                    mapToModeOverrides = overrides
+                    self.mapToModeOverrides = overrides
                 else:
                     print("Overrides not found.")
-                    mapToModeOverrides = {}
+                    self.mapToModeOverrides = {}
             except Exception as e:
                 print(f"An error occurred: {e}")
-                mapToModeOverrides = {}
+                self.mapToModeOverrides = {}
 
-        if mapToModeOverrides is None:
+        if self.mapToModeOverrides is None:
             print("Fetching")
             fetchAndAssignOverrides()
 
-        if 'map' in game['event'] and game['event']['map'] in mapToModeOverrides:
-            return mapToModeOverrides[game['event']['map']]
+        if 'map' in game['event'] and game['event']['map'] in self.mapToModeOverrides:
+            return self.mapToModeOverrides[game['event']['map']]
         elif 'mode' in game['event'] and game['event']['mode'] != "unknown":
             return game['event']['mode']
         elif 'mode' in game['battle']:

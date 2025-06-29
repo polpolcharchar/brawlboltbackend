@@ -1,4 +1,4 @@
-from CompilerStructures.serializable import Serializable
+from CompilerStructuresModule.CompilerStructures.serializable import Serializable
 
 
 class FrequencyCompiler(Serializable):
@@ -21,3 +21,6 @@ class FrequencyCompiler(Serializable):
             count += freq
 
         return 0 if count == 0 else total / count
+    
+    def __str__(self):
+        return str(self.frequencies)

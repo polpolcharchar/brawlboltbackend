@@ -1,5 +1,5 @@
-from CompilerStructures import ResultTracker
-from CompilerStructures.serializable import Serializable
+from CompilerStructuresModule.CompilerStructures.serializable import Serializable
+from CompilerStructuresModule.CompilerStructures.resultTracker import ResultTracker
 
 
 class GlobalResultCompiler(Serializable):

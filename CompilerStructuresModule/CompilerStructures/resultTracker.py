@@ -1,4 +1,5 @@
-from CompilerStructures.serializable import Serializable
+from decimal import Decimal
+from CompilerStructuresModule.CompilerStructures.serializable import Serializable
 
 
 class ResultTracker(Serializable):

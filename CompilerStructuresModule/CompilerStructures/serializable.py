@@ -1,4 +1,7 @@
 # AI
+from decimal import Decimal
+
+
 class Serializable:
     def to_dict(self):
         result = {}
@@ -14,6 +17,8 @@ class Serializable:
             
             if isinstance(v, Serializable):
                 result[k] = v.to_dict()
+            elif isinstance(v, Decimal):
+                result[k] = int(v) if v % 1 == 0 else float(v)
             elif isinstance(v, dict):
                 # Recursively handle dict values
                 result[k] = {key: val.to_dict() if isinstance(val, Serializable) else val for key, val in v.items()}
