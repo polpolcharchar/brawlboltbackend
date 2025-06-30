@@ -10,7 +10,7 @@ This repository handles website requests, player tracking, statistic compiling, 
 
 ### Website Backend:
 
-[lambda_function.py](lambda_function.py) is deployed to AWS Lambda and handles requests from [brawlbolt.com](https://www.brawlbolt.com/). In order to handle global statistics, player statistics, and account tracking, it utilizes much of this repository.
+[lambda_function.py](lambda_function.py) is deployed to AWS Lambda via [AWS CodePipeline](https://aws.amazon.com/codepipeline/) and handles requests from [brawlbolt.com](https://www.brawlbolt.com/). In order to handle global statistics, player statistics, and account tracking, it utilizes much of this repository.
 It is able to handle requests for:
 
 - Recent global statistics: the most recently compiled winrates of each brawler in each mode
