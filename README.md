@@ -1,6 +1,8 @@
 # BrawlBolt Backend
 
-A collection of utility and main scripts used to automate the functions of brawlbolt.com. This code serves multiple functions, and it has [multiple main scripts](#Major-Deployments). [BrawlBolt statistic compilation](#brawlbolt-statistic-compilation) allows for statistics to be available to the user in the same time, no matter what.
+[brawlbolt.com](https://www.brawlbolt.com/) is a free, open source account tracker for Brawl Stars. It tracks every game you play and provides instant access to statistics more detailed than any other site. Also, global statistics allow for analysis of the overall meta for any brawler or mode.
+
+This repository is a collection of utility and main scripts used to automate the functions of [brawlbolt.com](https://www.brawlbolt.com/). It serves multiple functions, and it has [multiple main scripts](#Major-Deployments). [BrawlBolt statistic compilation](#brawlbolt-statistic-compilation) allows for statistics to be available to the user in the same time, no matter what.
 
 ## Major Deployments:
 
@@ -52,7 +54,7 @@ For each match, the Brawl Stars API provides:
 > - Trophy Change (if applicable)
 > - Duration (if applicable)
 
-With this, BrawlBolt compiles:
+With this, BrawlBolt compiles the following statistics, as seen in [Result Tracker](/CompilerStructuresModule/CompilerStructures/resultTracker.py) and [Player Result Compiler](/CompilerStructuresModule/CompilerStructures/playerResultCompiler.py):
 
 > - Winrate
 > - Star Rate (the percentage of time a player gets Star Player)
@@ -65,18 +67,22 @@ Technically, it is possible to calculate more detailed statistics, like the winr
 
 ### "Where" Should Data be Compiled?
 
-In the previous section, six statistics to compile were established. These could just be compiled once per account, but that wouldn't be very useful. What is much more useful is knowing these statistics per brawler, per map, per mode, or any combination of the three. BrawlBolt defines four attributes of a game that are used for specific compilation:
+In the previous section, six statistics to compile were established. These could just be compiled once per account, but that wouldn't be very useful. What is much more useful is knowing these statistics per brawler, per map, per mode, or any combination of the three. BrawlBolt defines four attributes of a game that are used for more specific compilation:
 
 - Brawler
 - Mode
 - Map
 - Regular vs Ranked
 
-It is easy to access these values for each game, and it isn't too difficult to calculate statistics for each brawler, or each mode. But more specificy is definitely needed. The winrates for a brawler will be very different between regular games and ranked games. Thus, it is necessary to access statistics for combinations of these attributes. For example, the winrate of Spike in Ranked Brawl Ball. Despite greatly increasing complexity, BrawlBolt compiles statistics for any combination of these attributes (except global statistics, which do not include map).
+It is easy to access these values for each game, and it isn't too difficult to calculate statistics for each brawler, or each mode. But more specificy is definitely needed. The winrates for a brawler will be very different between regular games and ranked games. Thus, it is necessary to access statistics for combinations of these attributes. Despite greatly increasing complexity, BrawlBolt compiles statistics for any combination of these attributes (except global statistics, which do not include map).
+
+### Statistic Format
+
+It would be possible to store all possible combinations of attributes, but this would be very inefficient. Statistic values are only created for areas that apply to the player (wins for Spike are not tracked until a player has played Spike), and they are saved recursively. The [Recursive Attribute Structure](/CompilerStructuresModule/CompilerStructures/recursiveAttributeStructure.py) enables combinations of attributes. For player statistics, there are three recursive attribute paths: mode, map, brawler; brawler, mode, map; and mode, brawler. This means that it is possible to get statistics for any combination of mode, map, and brawler values.
 
 ## Dependencies:
 
-This repository relies on multiple python dependencies. In most cases, it is assumed that these are present on the current machine. For AWS Lambda, dependencies are available using a [Lambda Layer](https://docs.aws.amazon.com/lambda/latest/dg/chapter-layers.html). As of now, the dependencies are as follows:
+This repository relies on multiple python dependencies. In most cases, it is assumed that these are present on the current machine. For AWS Lambda, dependencies are available using a [Lambda Layer](https://docs.aws.amazon.com/lambda/latest/dg/chapter-layers.html). As of now, the dependencies are available in [requirements.txt](requirements.txt) and listed here:
 - [Boto3](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html)
 - [requests](https://pypi.org/project/requests/)
 - [python-dotenv](https://pypi.org/project/python-dotenv/)
