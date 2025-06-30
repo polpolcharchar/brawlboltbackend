@@ -1,9 +1,9 @@
-from DatabaseUtility.itemUtility import deserializeDynamoDbItem
+from apiUtility import getApiRecentGames
+from DatabaseUtility.itemUtility import deserializeDynamoDbItem, prepareItem
 
 
 GAMES_TABLE_NAME = "BrawlStarsGames"
 
-# Function to batch write new games to DynamoDB
 def batchWriteGamesToDynamodb(items, dynamodb):
     """Write items to DynamoDB in batches."""
     try:
@@ -23,7 +23,6 @@ def batchWriteGamesToDynamodb(items, dynamodb):
 
             # Check for unprocessed items
             while response.get("UnprocessedItems", {}):
-                # print("Retrying unprocessed items...")
                 response = dynamodb.batch_write_item(
                     RequestItems=response["UnprocessedItems"]
                 )
@@ -33,15 +32,6 @@ def batchWriteGamesToDynamodb(items, dynamodb):
     print("Finished writing " + str(len(items)) + " to DB")
 
 def getAllUncachedGames(playerTag, dynamodb):
-    """
-    Retrieve all games for a specific player where statsCached is False.
-
-    Parameters:
-        playerTag (str): The primary key of the player.
-
-    Returns:
-        list: A list of games where statsCached is False.
-    """
     games = []
 
     # Query the table for the playerTag with a filter for statsCached = False
@@ -55,11 +45,9 @@ def getAllUncachedGames(playerTag, dynamodb):
         }
     )
 
-    # Collect games from the response
     for item in response.get('Items', []):
         games.append(deserializeDynamoDbItem(item))
 
-    # If there are more items to retrieve (pagination), keep querying
     while 'LastEvaluatedKey' in response:
         response = dynamodb.query(
             TableName=GAMES_TABLE_NAME,
@@ -75,3 +63,40 @@ def getAllUncachedGames(playerTag, dynamodb):
             games.append(deserializeDynamoDbItem(item))
 
     return games
+
+def getMostRecentGame(playerTag, dynamodb):
+    response = dynamodb.query(
+        TableName=GAMES_TABLE_NAME,
+        KeyConditionExpression="playerTag = :playerTag",
+        ExpressionAttributeValues={":playerTag": {"S": playerTag}},
+        Limit=1,
+        ScanIndexForward=False
+    )
+
+    if response.get('Items'):
+        return response['Items'][0]
+    else:
+        return None
+
+def saveRecentGames(playerTag, dynamodb):
+    recentApiGames = getApiRecentGames(playerTag)
+
+    if recentApiGames is None:
+        recentApiGames = []
+    
+    mostRecentCachedGame = getMostRecentGame(playerTag, dynamodb)
+    mostRecentGameTime = mostRecentCachedGame["battleTime"]["S"] if mostRecentCachedGame else None
+
+    newGames = [
+        game for game in recentApiGames
+        if not mostRecentGameTime or game["battleTime"] > mostRecentGameTime
+    ]
+
+    for game in newGames:
+        game["statsCached"] = False
+    
+    for game in newGames:
+        game["playerTag"] = playerTag
+    preparedGames = [prepareItem(game) for game in newGames]
+
+    batchWriteGamesToDynamodb(preparedGames, dynamodb)

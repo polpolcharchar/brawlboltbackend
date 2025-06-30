@@ -10,6 +10,7 @@ def convertItemToNewFormat(item, binaryAttributeName):
     binary = item[binaryAttributeName]["B"]
     deserialized = pickle.loads(binary)
 
+    #This can't be used with the other version of this function in utility, because RSC and FC are different classes now
     def fullyJSONifyData(d):
         if isinstance(d, RecursiveStatCompiler):
             return d.to_dict()
@@ -20,11 +21,10 @@ def convertItemToNewFormat(item, binaryAttributeName):
         elif isinstance(d, list):
             return [fullyJSONifyData(item) for item in d]
         elif isinstance(d, set):
-            return [fullyJSONifyData(item) for item in sorted(d)]  # Convert to a sorted list for JSON compatibility
+            return [fullyJSONifyData(item) for item in sorted(d)]
         elif isinstance(d, tuple):
             return tuple(fullyJSONifyData(item) for item in d)
         else:
-            # Return primitive types (str, int, float, bool, None) as is
             return d
     
     jsonData = fullyJSONifyData(deserialized)

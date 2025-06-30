@@ -1,25 +1,19 @@
-
-
+from datetime import datetime
 import json
-from CompilerStructuresModule.CompilerStructures.frequencyCompiler import FrequencyCompiler
-from CompilerStructuresModule.CompilerStructures.recursiveAttributeStructure import RecursiveAttributeStructure
-from DatabaseUtility.gamesUtility import batchWriteGamesToDynamodb, getAllUncachedGames
-from DatabaseUtility.itemUtility import deserializeDynamoDbItem, prepareItem
+from apiUtility import getApiPlayerInfo
+from DatabaseUtility.gamesUtility import batchWriteGamesToDynamodb, getAllUncachedGames, saveRecentGames
+from DatabaseUtility.itemUtility import deserializeDynamoDbItem, fullyJSONifyData, prepareItem
 from brawlStats import BrawlStats
 
-
-playerInfoTable = 'BrawlStarsPlayersInfo'
-playerCompiledStatsTable = 'BrawlStarsPlayers2'
-
+PLAYER_INFO_TABLE = 'BrawlStarsPlayersInfo'
+PLAYER_COMPILED_STATS_TABLE = 'BrawlStarsPlayers2'
 
 def getAllPlayerTagsSet(dynamodb):
 
-    # Initialize an empty list to store playerTags
     playersInfo = []
 
-    # Use a scan operation to retrieve all items from the table
     response = dynamodb.scan(
-        TableName=playerInfoTable,
+        TableName=PLAYER_INFO_TABLE,
     )
 
     # Collect playerTags from the response
@@ -29,7 +23,7 @@ def getAllPlayerTagsSet(dynamodb):
     # If there are more items to retrieve (pagination), keep scanning
     while 'LastEvaluatedKey' in response:
         response = dynamodb.scan(
-            TableName=playerInfoTable,
+            TableName=PLAYER_INFO_TABLE,
             ExclusiveStartKey=response['LastEvaluatedKey'],
         )
         for item in response.get('Items', []):
@@ -41,11 +35,11 @@ def getAllPlayerTagsSet(dynamodb):
 
     return playerTagSet
 
-def getPlayerStatsObject(playerTag, dynamodb):
+def getPlayerCompiledStatsJSON(playerTag, dynamodb):
     try:
         # Query all items for the given playerTag
         response = dynamodb.query(
-            TableName=playerCompiledStatsTable,
+            TableName=PLAYER_COMPILED_STATS_TABLE,
             KeyConditionExpression="playerTag = :playerTag",
             ExpressionAttributeValues={":playerTag": {"S": playerTag}}
         )
@@ -58,6 +52,18 @@ def getPlayerStatsObject(playerTag, dynamodb):
                 item["statType"]["S"]: json.loads(item["stats"]["S"])
                 for item in items
             }
+
+            return stats
+        else:
+            return []
+    except Exception as e:
+        return []
+
+def getPlayerStatsObject(playerTag, dynamodb):
+    try:
+        stats = getPlayerCompiledStatsJSON(playerTag, dynamodb)
+
+        if len(stats) == 7:
 
             playerData = {
                 "regular_stat_compilers": {
@@ -73,16 +79,14 @@ def getPlayerStatsObject(playerTag, dynamodb):
                 "showdown_rank_compilers": stats.get("showdownRankCompilers", {})
             }
 
-            # Create and return a PlayerStats object using the deserialized data
             return BrawlStats(False, playerData)
         else:
-            # No stats found for the player, return a new blank object
             print("No stats found")
             return BrawlStats(False)
     except Exception as e:
         print(f"Error loading player stats for {playerTag}: {e}")
         return BrawlStats(False)
-    
+ 
 def compileUncachedStats(playerTag, dynamodb):
     print("Updating stats: " + playerTag)
 
@@ -96,24 +100,6 @@ def compileUncachedStats(playerTag, dynamodb):
     #Load and handle stats
     playerStats = getPlayerStatsObject(playerTag, dynamodb)
     playerStats.handleBattles(games, "#" + playerTag)
-
-
-    def fullyJSONifyData(d):
-        if isinstance(d, RecursiveAttributeStructure):
-            return d.to_dict()
-        elif isinstance(d, FrequencyCompiler):
-            return d.to_dict()
-        elif isinstance(d, dict):
-            return {key: fullyJSONifyData(value) for key, value in d.items()}
-        elif isinstance(d, list):
-            return [fullyJSONifyData(item) for item in d]
-        elif isinstance(d, set):
-            return [fullyJSONifyData(item) for item in sorted(d)]  # Convert to a sorted list for JSON compatibility
-        elif isinstance(d, tuple):
-            return tuple(fullyJSONifyData(item) for item in d)
-        else:
-            # Return primitive types (str, int, float, bool, None) as is
-            return d
 
     # Define the configurations for all stat objects
     rawStatObjects = [
@@ -162,11 +148,10 @@ def compileUncachedStats(playerTag, dynamodb):
     # Update Player Stats
     for item in preparedStatObjects:
         response = dynamodb.put_item(
-            TableName=playerCompiledStatsTable,
+            TableName=PLAYER_COMPILED_STATS_TABLE,
             Item=item,
             # ReturnConsumedCapacity='TOTAL'  # Adjust this value as needed
         )
-        # print(response)
 
     #set statsCached for every game to false
     for game in games:
@@ -177,4 +162,86 @@ def compileUncachedStats(playerTag, dynamodb):
     batchWriteGamesToDynamodb(preparedGames, dynamodb)
 
     print(playerTag + " updated.")
+
+def updateStatsLastCompiled(playerTag, dynamodb):
+    dynamodb.update_item(
+        TableName=PLAYER_INFO_TABLE,
+        Key={"playerTag": {"S": playerTag}},
+        UpdateExpression="SET statsLastCompiled = :statsLastCompiled",
+        ExpressionAttributeValues={":statsLastCompiled": {"S": datetime.now().isoformat()}}
+    )
+
+def updateStatsLastAccessed(playerTag, dynamodb):
+    dynamodb.update_item(
+        TableName=PLAYER_INFO_TABLE,
+        Key={"playerTag": {"S": playerTag}},
+        UpdateExpression="SET statsLastAccessed = :statsLastAccessed",
+        ExpressionAttributeValues={":statsLastAccessed": {"S": datetime.now().isoformat()}}
+    )
+
+def beginTrackingPlayer(playerTag, dynamodb):
+    
+    #Check that this is a valid playerTag:
+    apiPlayerInfo = getApiPlayerInfo(playerTag)
+
+    if apiPlayerInfo is None:
+        return False
+
+    dynamodb.put_item(
+        TableName=PLAYER_INFO_TABLE,
+        Item={
+            'playerTag': {'S': playerTag},
+            'currentlyTrackingGames': {'BOOL': True},
+            'regularlyCompileStats': {'BOOL': False},
+            'username': {'S': apiPlayerInfo['name']},
+            'statsLastCompiled': {'S': datetime.min.isoformat()},
+            'statsLastAccessed': {'S': datetime.now().isoformat()}
+        },
+    )
+
+    saveRecentGames(playerTag, dynamodb)
+
+    return True
+
+def getPlayerInfo(playerTag, dynamodb):
+    return dynamodb.query(
+        TableName=PLAYER_INFO_TABLE,
+        KeyConditionExpression='playerTag = :playerTag',
+        ExpressionAttributeValues={
+            ':playerTag': {'S': playerTag},
+        },
+    )
+
+#Unused, remove?
+def isLastCompiledOlderThan(playerTag, days, dynamodb):
+    """
+    Check if the last compiled date for a player is older than a specified number of days.
+
+    Parameters:
+        playerTag (str): The primary key of the player.
+        days (int): The number of days to check against.
+
+    Returns:
+        bool: True if the last compiled date is older than the specified number of days, False otherwise.
+    """
+    try:
+        # Query the table for the playerTag
+        response = dynamodb.query(
+            TableName=PLAYER_INFO_TABLE,
+            KeyConditionExpression="playerTag = :playerTag",
+            ExpressionAttributeValues={":playerTag": {"S": playerTag}}
+        )
+
+        # Check if the item exists and if the last compiled date is older than the specified number of days
+        if len(response["Items"]) > 0:
+            lastCompiledDate = datetime.fromisoformat(response["Items"][0]["statsLastCompiled"]["S"])
+            return (datetime.now() - lastCompiledDate).days > days
+        else:
+            # No stats found for the player, return True
+            # print("Player not found, returning True")
+            return True
+    except Exception as e:
+        # print(f"Error checking last compiled date for {playerTag}: {e}")
+        return True
+
 

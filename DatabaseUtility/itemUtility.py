@@ -1,9 +1,11 @@
 from decimal import Decimal
 from boto3.dynamodb.types import TypeDeserializer
 
+from CompilerStructuresModule.CompilerStructures.frequencyCompiler import FrequencyCompiler
+from CompilerStructuresModule.CompilerStructures.recursiveAttributeStructure import RecursiveAttributeStructure
+
 deserializer = TypeDeserializer()
 
-# Function to prepare and unprepare DynamoDB items
 def prepareItem(game):
     item = {}
     for key, value in game.items():
@@ -26,9 +28,29 @@ def convertToDynamodbFormat(value):
         return {"NULL": True}
     elif isinstance(value, Decimal):
         return {"N": str(value)}
-    elif hasattr(value, "__dict__"):  # Check if it's a class instance
+    elif hasattr(value, "__dict__"):
         return {"M": {k: convertToDynamodbFormat(v) for k, v in vars(value).items() if k != "stat_chain"}}
     else:
         raise ValueError(f"Unsupported value type: {type(value)}")
 def deserializeDynamoDbItem(dynamodbItem):
     return {key: deserializer.deserialize(value) for key, value in dynamodbItem.items()}
+
+#Used for getting rid of decimals and weird sustaining RecursiveAttributeStructure
+#Should be improved to removal at some point
+def fullyJSONifyData(d):
+    if isinstance(d, RecursiveAttributeStructure):
+        return d.to_dict()
+    elif isinstance(d, FrequencyCompiler):
+        return d.to_dict()
+    elif isinstance(d, Decimal):
+        return int(d) if d % 1 == 0 else float(d)
+    elif isinstance(d, dict):
+        return {key: fullyJSONifyData(value) for key, value in d.items()}
+    elif isinstance(d, list):
+        return [fullyJSONifyData(item) for item in d]
+    elif isinstance(d, set):
+        return [fullyJSONifyData(item) for item in sorted(d)]
+    elif isinstance(d, tuple):
+        return tuple(fullyJSONifyData(item) for item in d)
+    else:
+        return d
