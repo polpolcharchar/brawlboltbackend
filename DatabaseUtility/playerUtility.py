@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
-from apiUtility import getApiPlayerInfo
+from apiUtility import getApiProxyPlayerInfo
 from DatabaseUtility.gamesUtility import batchWriteGamesToDynamodb, getAllUncachedGames, saveRecentGames
 from DatabaseUtility.itemUtility import deserializeDynamoDbItem, fullyJSONifyData, prepareItem
 from brawlStats import BrawlStats
@@ -34,6 +34,35 @@ def getAllPlayerTagsSet(dynamodb):
         playerTagSet.add(info['playerTag'])
 
     return playerTagSet
+
+def getAllPlayerTagsSetInRecentDays(dynamodb, numDays=30):
+    cutoffDate = datetime.utcnow() - timedelta(days=numDays)
+
+    tags = set()
+    response = dynamodb.scan(
+        TableName=PLAYER_INFO_TABLE,
+        ProjectionExpression='playerTag, statsLastAccessed'
+    )
+
+    while True:
+        for item in response.get('Items', []):
+            player_tag = item['playerTag']['S']
+            stats_last_accessed = item.get('statsLastAccessed', {}).get('S')
+            if stats_last_accessed:
+                last_accessed_date = datetime.fromisoformat(stats_last_accessed)
+                if last_accessed_date >= cutoffDate:
+                    tags.add(player_tag)
+
+        # Check for more items to scan
+        if 'LastEvaluatedKey' not in response:
+            break
+        response = dynamodb.scan(
+            TableName=PLAYER_INFO_TABLE,
+            ExclusiveStartKey=response['LastEvaluatedKey'],
+            ProjectionExpression='playerTag, statsLastAccessed'
+        )
+
+    return tags
 
 def getPlayerCompiledStatsJSON(playerTag, dynamodb):
     try:
@@ -181,7 +210,7 @@ def updateStatsLastAccessed(playerTag, dynamodb):
 def beginTrackingPlayer(playerTag, dynamodb):
     
     #Check that this is a valid playerTag:
-    apiPlayerInfo = getApiPlayerInfo(playerTag)
+    apiPlayerInfo = getApiProxyPlayerInfo(playerTag)
 
     if apiPlayerInfo is None:
         return False

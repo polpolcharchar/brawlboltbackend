@@ -54,3 +54,29 @@ def fullyJSONifyData(d):
         return tuple(fullyJSONifyData(item) for item in d)
     else:
         return d
+
+def batchWriteToDynamoDB(items, tableName, dynamodb):
+    """Write items to DynamoDB in batches."""
+    try:
+        # DynamoDB limits batch write to 25 items per request
+        MAX_BATCH_SIZE = 25
+        for i in range(0, len(items), MAX_BATCH_SIZE):
+            batch = items[i:i + MAX_BATCH_SIZE]
+            request_items = {
+                tableName: [
+                    {"PutRequest": {"Item": item}}
+                    for item in batch
+                ]
+            }
+
+            # Write batch to DynamoDB
+            response = dynamodb.batch_write_item(RequestItems=request_items)
+
+            # Check for unprocessed items
+            while response.get("UnprocessedItems", {}):
+                print("Retrying unprocessed items...")
+                response = dynamodb.batch_write_item(
+                    RequestItems=response["UnprocessedItems"]
+                )
+    except Exception as e:
+        print(f"Error writing batch to DynamoDB: {e.response['Error']['Message']}")

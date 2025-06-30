@@ -1,4 +1,4 @@
-from apiUtility import getApiRecentGames
+from apiUtility import getApiProxyRecentGames
 from DatabaseUtility.itemUtility import deserializeDynamoDbItem, prepareItem
 
 
@@ -79,7 +79,7 @@ def getMostRecentGame(playerTag, dynamodb):
         return None
 
 def saveRecentGames(playerTag, dynamodb):
-    recentApiGames = getApiRecentGames(playerTag)
+    recentApiGames = getApiProxyRecentGames(playerTag)
 
     if recentApiGames is None:
         recentApiGames = []
