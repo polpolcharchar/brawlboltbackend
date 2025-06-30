@@ -138,8 +138,7 @@ def compileUncachedStats(playerTag, dynamodb):
         {
             "playerTag": playerTag,
             "statType": "showdownRankCompilers",
-            #This is weird and needs to be fixed:
-            "stats": json.dumps({key: value.to_dict()["frequencies"] for key, value in playerStats.showdown_rank_compilers.items()})
+            "stats": json.dumps({key: value.to_dict() for key, value in playerStats.showdown_rank_compilers.items()})
         }
     ]
 
