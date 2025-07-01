@@ -19,6 +19,8 @@ It is able to handle requests for:
   - If the requested account is new to BrawlBolt, it will begin being tracked and have its most recent games compiled and statistics returned
   - If the requested account is already tracked, its compiled statistics will be returned
 
+To learn more about how the client interacts with this data, see the [BrawlBolt Web Repository](https://github.com/polpolcharchar/brawlbolt).
+
 ### Compiler:
 
 [compiler.py](compiler.py) is run every 48 hours to compile the statistics of all uncached games. It retrieves the currently-compiled statistics, adds the data from any uncached games, marks these games as cached, and saves the newly-compiled statistics.
