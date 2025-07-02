@@ -189,6 +189,28 @@ class BrawlStats(Serializable):
                     )
                 )
 
+    # Unfinished!
+    def merge(self, otherBrawlStats):
+
+        if self.isGlobal != otherBrawlStats.isGlobal:
+            print("Cannot merge two BrawlStats of different types!")
+            return False
+
+        if self.mapToModeOverrides is None and otherBrawlStats.mapToModeOverrides is not None:
+            self.mapToModeOverrides = otherBrawlStats.mapToModeOverrides
+
+        self.regular_stat_compilers.merge(otherBrawlStats.regular_stat_compilers)
+        self.ranked_stat_compilers.merge(otherBrawlStats.ranked_stat_compilers)
+        
+        seenShowdownTypes = set()
+        for showdownType in self.showdown_rank_compilers:
+            self.showdown_rank_compilers[showdownType].merge(otherBrawlStats.showdown_rank_compilers[showdownType])
+            seenShowdownTypes.add(showdownType)
+        
+        for otherShowdownType in otherBrawlStats.showdown_rank_compilers:
+            if otherShowdownType not in seenShowdownTypes:
+                self.showdown_rank_compilers[otherShowdownType] = otherBrawlStats.showdown_rank_compilers[otherShowdownType]
+
     # Utility Functions
     def getWinningTeamIndex(self, game, playerTag):
         result = 1 if (game['battle']['result'] == "victory") else 0
