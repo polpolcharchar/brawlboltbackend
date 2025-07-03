@@ -27,6 +27,9 @@ def getSecret(secretName):
     
     if _secretsMap is None:
         fetchAndAssignSecrets()
+
+    print(_secretsMap)
+    print(secretName)
     
     return _secretsMap[secretName]
 
