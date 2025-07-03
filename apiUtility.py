@@ -7,9 +7,15 @@ load_dotenv()
 API_PROXY_URL = os.getenv("BRAWL_STARS_API_PROXY_URL")
 BRAWL_API_KEY = os.getenv("BRAWL_API_KEY")
 
-def getApiProxyPlayerInfo(playerTag):
+# The Brawl Stars API requires you to associate an ip address with an API key
+# Because of this, serverless Lambda functions cannot directly access the API
+# ApiProxy functions access BrawlBolt's API proxy that mimics the API from a static IP
+# Pure Api functions assume that the code is being run from the ip that is associated with the API key
+
+def requestApiProxy(endpoint):
+
     body = {
-        "endpoint": "players/%23" + playerTag,
+        "endpoint": endpoint,
         "params": {}
     }
 
@@ -20,18 +26,17 @@ def getApiProxyPlayerInfo(playerTag):
     except requests.exceptions.RequestException as e:
         return None
 
-def getApiProxyRecentGames(playerTag):
-    body = {
-        "endpoint": "players/%23" + playerTag + "/battlelog",
-        "params": {}
-    }
+def getApiProxyPlayerInfo(playerTag):
 
-    try:
-        response = requests.post(API_PROXY_URL, json=body)
-        response.raise_for_status()
-        return response.json().get("items", [])
-    except requests.exceptions.RequestException as e:
-        return None
+    endpoint = "players/%23" + playerTag
+
+    return requestApiProxy(endpoint)
+
+def getApiProxyRecentGames(playerTag):
+
+    endpoint = "players/%23" + playerTag + "/battlelog"
+
+    return requestApiProxy(endpoint).get("items", [])
 
 def getApiRecentGames(playerTag):
     response = requests.get(
