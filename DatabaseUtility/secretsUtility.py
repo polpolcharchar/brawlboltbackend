@@ -16,10 +16,12 @@ def getSecret(secretName):
                 Key={'id': {'S': 'allSecrets'}}
             )
 
+            print("Response:")
             print(response)
 
             if 'Item' in response and 'jsonValues' in response['Item']:
                 secretsJsonString = response['Item']['jsonValues']['S']
+                print("Json:")
                 print(secretsJsonString)
                 parsedSecrets = json.loads(secretsJsonString)
                 _secretsMap = parsedSecrets
@@ -27,6 +29,7 @@ def getSecret(secretName):
                 print("no item")
                 _secretsMap = {}
         except Exception as e:
+            print("Error---")
             print(e)
             _secretsMap = {}
     
