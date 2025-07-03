@@ -1,9 +1,6 @@
 import requests
 from DatabaseUtility.secretsUtility import getSecret
 
-# API_PROXY_URL = os.getenv("BRAWL_STARS_API_PROXY_URL")
-# BRAWL_API_KEY = os.getenv("BRAWL_API_KEY")
-
 # The Brawl Stars API requires you to associate an ip address with an API key
 # Because of this, serverless Lambda functions cannot directly access the API
 # ApiProxy functions access BrawlBolt's API proxy that mimics the API from a static IP
