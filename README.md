@@ -87,4 +87,3 @@ It would be possible to store all possible combinations of attributes, but this 
 This repository relies on multiple Python dependencies. In most cases, it is assumed that these are present on the current machine. For AWS Lambda, dependencies are available using a [Lambda Layer](https://docs.aws.amazon.com/lambda/latest/dg/chapter-layers.html). As of now, the dependencies are available in [requirements.txt](requirements.txt) and listed here:
 - [Boto3](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html)
 - [requests](https://pypi.org/project/requests/)
-- [python-dotenv](https://pypi.org/project/python-dotenv/)
