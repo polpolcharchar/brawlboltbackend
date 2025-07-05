@@ -5,12 +5,8 @@ from CompilerStructuresModule.CompilerStructures.resultTracker import ResultTrac
 class GlobalResultCompiler(Serializable):
 
     def __init__(self, fromDict=None):
-        if fromDict is None:
-            self.player_result_data = ResultTracker()
-            self.player_star_data = ResultTracker()
-        else:
-            self.player_result_data = ResultTracker(fromDict['player_result_data'])
-            self.player_star_data = ResultTracker(fromDict['player_star_data'])
+        self.player_result_data = ResultTracker(fromDict['player_result_data'] if fromDict else None)
+        self.player_star_data = ResultTracker(fromDict['player_star_data'] if fromDict else None)
     
     def __str__(self):
         return (

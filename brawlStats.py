@@ -11,46 +11,26 @@ class BrawlStats(Serializable):
 
         self.isGlobal = isGlobal
 
-        # Completely new object:
-        if playerDataJSON is None:
-            self.typeModeBrawler = RecursiveAttributeStructure(isGlobal, ["type", "mode", "brawler"])
-            self.typeModeBrawler.populateNextStructure("regular")
-            self.typeModeBrawler.populateNextStructure("ranked")
+        self.typeModeBrawler = RecursiveAttributeStructure(isGlobal, ["type", "mode", "brawler"])
+        self.typeModeBrawler.populateNextStructure("regular", playerDataJSON["regular_mode_brawler"] if playerDataJSON else None)
+        self.typeModeBrawler.populateNextStructure("ranked", playerDataJSON["ranked_mode_brawler"] if playerDataJSON else None)
 
-            if self.isGlobal:
-                self.typeBrawler = RecursiveAttributeStructure(isGlobal, ["type", "brawler"])
-                self.typeBrawler.populateNextStructure("regular")
-                self.typeBrawler.populateNextStructure("ranked")
-            else:
-                self.typeBrawlerModeMap = RecursiveAttributeStructure(isGlobal, ["type", "brawler", "mode", "map"])
-                self.typeBrawlerModeMap.populateNextStructure("regular")
-                self.typeBrawlerModeMap.populateNextStructure("ranked")
-
-                self.typeModeMapBrawler = RecursiveAttributeStructure(isGlobal, ["type", "mode", "map", "brawler"])
-                self.typeModeMapBrawler.populateNextStructure("regular")
-                self.typeModeMapBrawler.populateNextStructure("ranked")
-
-            self.showdown_rank_compilers = {}
-
-        # Load from database:
+        if self.isGlobal:
+            self.typeBrawler = RecursiveAttributeStructure(isGlobal, ["type", "brawler"])
+            self.typeBrawler.populateNextStructure("regular", playerDataJSON["regular_brawler"] if playerDataJSON else None)
+            self.typeBrawler.populateNextStructure("ranked", playerDataJSON["ranked_brawler"] if playerDataJSON else None)
         else:
-            self.typeModeBrawler = RecursiveAttributeStructure(isGlobal, ["type", "mode", "brawler"])
-            self.typeModeBrawler.get_next_stat_map()["regular"] = RecursiveAttributeStructure(isGlobal, ["mode", "brawler"], playerDataJSON["regular_mode_brawler"])
-            self.typeModeBrawler.get_next_stat_map()["ranked"] = RecursiveAttributeStructure(isGlobal, ["mode", "brawler"], playerDataJSON["ranked_mode_brawler"])
+            self.typeBrawlerModeMap = RecursiveAttributeStructure(isGlobal, ["type", "brawler", "mode", "map"])
+            self.typeBrawlerModeMap.populateNextStructure("regular", playerDataJSON["regular_brawler_mode_map"] if playerDataJSON else None)
+            self.typeBrawlerModeMap.populateNextStructure("ranked", playerDataJSON["ranked_brawler_mode_map"] if playerDataJSON else None)
 
-            if self.isGlobal:
-                self.typeBrawler = RecursiveAttributeStructure(isGlobal, ["type", "brawler"])
-                self.typeBrawler.get_next_stat_map()["regular"] = RecursiveAttributeStructure(isGlobal, ["brawler"], playerDataJSON["regular_brawler"])
-                self.typeBrawler.get_next_stat_map()["ranked"] = RecursiveAttributeStructure(isGlobal, ["brawler"], playerDataJSON["ranked_brawler"])
-            else:
-                self.typeBrawlerModeMap = RecursiveAttributeStructure(isGlobal, ["type", "brawler", "mode", "map"])
-                self.typeBrawlerModeMap.get_next_stat_map()["regular"] = RecursiveAttributeStructure(isGlobal, ["brawler", "mode", "map"], playerDataJSON["regular_brawler_mode_map"])
-                self.typeBrawlerModeMap.get_next_stat_map()["ranked"] = RecursiveAttributeStructure(isGlobal, ["brawler", "mode", "map"], playerDataJSON["ranked_brawler_mode_map"])
+            self.typeModeMapBrawler = RecursiveAttributeStructure(isGlobal, ["type", "mode", "map", "brawler"])
+            self.typeModeMapBrawler.populateNextStructure("regular", playerDataJSON["regular_mode_map_brawler"] if playerDataJSON else None)
+            self.typeModeMapBrawler.populateNextStructure("ranked", playerDataJSON["ranked_mode_map_brawler"] if playerDataJSON else None)
 
-                self.typeModeMapBrawler = RecursiveAttributeStructure(isGlobal, ["type", "mode", "map", "brawler"])
-                self.typeModeMapBrawler.get_next_stat_map()["regular"] = RecursiveAttributeStructure(isGlobal, ["mode", "map", "brawler"], playerDataJSON["regular_mode_map_brawler"])
-                self.typeModeMapBrawler.get_next_stat_map()["ranked"] = RecursiveAttributeStructure(isGlobal, ["mode", "map", "brawler"], playerDataJSON["ranked_mode_map_brawler"])
-
+        if playerDataJSON is None:
+            self.showdown_rank_compilers = {}
+        else:
             self.showdown_rank_compilers = {key: FrequencyCompiler(value) for key, value in playerDataJSON['showdown_rank_compilers'].items()}
 
         # Put all in a list for easy compiling
@@ -67,7 +47,7 @@ class BrawlStats(Serializable):
 
     def handleBattles(self, battles, player_tag=""):
         if not self.isGlobal and player_tag == "":
-            print("Player-specific provided no palyer tag!")
+            print("Player-specific provided no player tag!")
             return False
 
         for battle in battles:

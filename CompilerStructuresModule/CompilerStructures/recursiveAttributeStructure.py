@@ -5,40 +5,20 @@ from CompilerStructuresModule.CompilerStructures.serializable import Serializabl
 
 class RecursiveAttributeStructure(Serializable):
     def __init__(self, isGlobal, stat_chains, fromDict=None):
-        if fromDict is None:
-            if isGlobal:
-                self.overall = GlobalResultCompiler()
-            else:
-                self.overall = PlayerResultCompiler()
+        if fromDict and not isinstance(fromDict, dict):
+            fromDict = fromDict.to_dict()
 
-            self.isGlobal = isGlobal
-                
-            self.stat_chain = stat_chains
-
-            if self.stat_chain:
-                # setattr(self, self.stat_chain[0], {})
-                setattr(self, 'stat_map', {})
+        if isGlobal:
+            self.overall = GlobalResultCompiler(fromDict['overall'] if fromDict else None)
         else:
-            if not isinstance(fromDict, dict):
-                fromDict = fromDict.to_dict()
-
-            if isGlobal:
-                self.overall = GlobalResultCompiler(fromDict['overall'])
-            else:
-                self.overall = PlayerResultCompiler(fromDict['overall'])
-            
-            self.isGlobal = isGlobal
-
-            self.stat_chain = fromDict['stat_chain']
-
-
-            if self.stat_chain:
-                oldMapName = 'stat_map'
-                if 'stat_map' not in fromDict:
-                    oldMapName = self.stat_chain[0]
-
-                nextStatMap = {key: RecursiveAttributeStructure(isGlobal, value['stat_chain'], value) for key, value in fromDict[oldMapName].items()}
-                setattr(self, 'stat_map', nextStatMap)
+            self.overall = PlayerResultCompiler(fromDict['overall'] if fromDict else None)
+        
+        self.isGlobal = isGlobal
+        self.stat_chain = stat_chains
+        
+        if self.stat_chain:
+            nextStatMap = {key: RecursiveAttributeStructure(isGlobal, value['stat_chain'], value) for key, value in (fromDict['stat_map'] if fromDict else {}).items()}
+            setattr(self, 'stat_map', nextStatMap)
     
     def exclude_attributes(self):
         return ["isGlobal"]
@@ -69,5 +49,5 @@ class RecursiveAttributeStructure(Serializable):
 
             stat_map[stat_value].handle_battle_result(match_data=match_data)
     
-    def populateNextStructure(self, stat_value):
-        self.get_next_stat_map()[stat_value] = RecursiveAttributeStructure(self.isGlobal, self.stat_chain[1:])
+    def populateNextStructure(self, stat_value, fromDict=None):
+        self.get_next_stat_map()[stat_value] = RecursiveAttributeStructure(self.isGlobal, self.stat_chain[1:], fromDict)
