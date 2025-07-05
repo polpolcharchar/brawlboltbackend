@@ -185,6 +185,8 @@ def compileUncachedStats(playerTag, dynamodb):
     preparedGames = [prepareItem(game) for game in games]
     batchWriteGamesToDynamodb(preparedGames, dynamodb)
 
+    updateStatsLastCompiled("9CUCYLQP", dynamodb)
+
     print(playerTag + " updated.")
 
 def updateStatsLastCompiled(playerTag, dynamodb):
