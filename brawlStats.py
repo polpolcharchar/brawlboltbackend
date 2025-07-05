@@ -1,29 +1,69 @@
 import math
-import boto3
-import json
 from CompilerStructuresModule.CompilerStructures.frequencyCompiler import FrequencyCompiler
 from CompilerStructuresModule.CompilerStructures.matchData import MatchData
-from CompilerStructuresModule.CompilerStructures.rasContainer import RAS_Container
+from CompilerStructuresModule.CompilerStructures.recursiveAttributeStructure import RecursiveAttributeStructure
 from CompilerStructuresModule.CompilerStructures.serializable import Serializable
 from DatabaseUtility.modeToMapOverrideUtility import getMode
 
 
 class BrawlStats(Serializable):
-    def __init__(self, isGlobal, fromDict=None):
+    def __init__(self, isGlobal, playerDataJSON=None):
 
         self.isGlobal = isGlobal
 
-        if fromDict is None:
-            self.regular_stat_compilers = RAS_Container(isGlobal)
-            self.ranked_stat_compilers = RAS_Container(isGlobal)
+        # Completely new object:
+        if playerDataJSON is None:
+            self.typeModeBrawler = RecursiveAttributeStructure(isGlobal, ["type", "mode", "brawler"])
+            self.typeModeBrawler.populateNextStructure("regular")
+            self.typeModeBrawler.populateNextStructure("ranked")
+
+            if self.isGlobal:
+                self.typeBrawler = RecursiveAttributeStructure(isGlobal, ["type", "brawler"])
+                self.typeBrawler.populateNextStructure("regular")
+                self.typeBrawler.populateNextStructure("ranked")
+            else:
+                self.typeBrawlerModeMap = RecursiveAttributeStructure(isGlobal, ["type", "brawler", "mode", "map"])
+                self.typeBrawlerModeMap.populateNextStructure("regular")
+                self.typeBrawlerModeMap.populateNextStructure("ranked")
+
+                self.typeModeMapBrawler = RecursiveAttributeStructure(isGlobal, ["type", "mode", "map", "brawler"])
+                self.typeModeMapBrawler.populateNextStructure("regular")
+                self.typeModeMapBrawler.populateNextStructure("ranked")
+
             self.showdown_rank_compilers = {}
+
+        # Load from database:
         else:
-            self.regular_stat_compilers = RAS_Container(isGlobal, fromDict['regular_stat_compilers'])
-            self.ranked_stat_compilers = RAS_Container(isGlobal, fromDict['ranked_stat_compilers'])
-            self.showdown_rank_compilers = {key: FrequencyCompiler(value) for key, value in fromDict['showdown_rank_compilers'].items()}
-    
+            self.typeModeBrawler = RecursiveAttributeStructure(isGlobal, ["type", "mode", "brawler"])
+            self.typeModeBrawler.get_next_stat_map()["regular"] = RecursiveAttributeStructure(isGlobal, ["mode", "brawler"], playerDataJSON["regular_mode_brawler"])
+            self.typeModeBrawler.get_next_stat_map()["ranked"] = RecursiveAttributeStructure(isGlobal, ["mode", "brawler"], playerDataJSON["ranked_mode_brawler"])
+
+            if self.isGlobal:
+                self.typeBrawler = RecursiveAttributeStructure(isGlobal, ["type", "brawler"])
+                self.typeBrawler.get_next_stat_map()["regular"] = RecursiveAttributeStructure(isGlobal, ["brawler"], playerDataJSON["regular_brawler"])
+                self.typeBrawler.get_next_stat_map()["ranked"] = RecursiveAttributeStructure(isGlobal, ["brawler"], playerDataJSON["ranked_brawler"])
+            else:
+                self.typeBrawlerModeMap = RecursiveAttributeStructure(isGlobal, ["type", "brawler", "mode", "map"])
+                self.typeBrawlerModeMap.get_next_stat_map()["regular"] = RecursiveAttributeStructure(isGlobal, ["brawler", "mode", "map"], playerDataJSON["regular_brawler_mode_map"])
+                self.typeBrawlerModeMap.get_next_stat_map()["ranked"] = RecursiveAttributeStructure(isGlobal, ["brawler", "mode", "map"], playerDataJSON["ranked_brawler_mode_map"])
+
+                self.typeModeMapBrawler = RecursiveAttributeStructure(isGlobal, ["type", "mode", "map", "brawler"])
+                self.typeModeMapBrawler.get_next_stat_map()["regular"] = RecursiveAttributeStructure(isGlobal, ["mode", "map", "brawler"], playerDataJSON["regular_mode_map_brawler"])
+                self.typeModeMapBrawler.get_next_stat_map()["ranked"] = RecursiveAttributeStructure(isGlobal, ["mode", "map", "brawler"], playerDataJSON["ranked_mode_map_brawler"])
+
+            self.showdown_rank_compilers = {key: FrequencyCompiler(value) for key, value in playerDataJSON['showdown_rank_compilers'].items()}
+
+        # Put all in a list for easy compiling
+        self.recursiveAttributeStructures = []
+        self.recursiveAttributeStructures.append(self.typeModeBrawler)
+        if self.isGlobal:
+            self.recursiveAttributeStructures.append(self.typeBrawler)
+        else:
+            self.recursiveAttributeStructures.append(self.typeBrawlerModeMap)
+            self.recursiveAttributeStructures.append(self.typeModeMapBrawler)
+
     def exclude_attributes(self):
-        return ["isGlobal"]
+        return ["isGlobal", "recursiveAttributeStructures"]
 
     def handleBattles(self, battles, player_tag=""):
         if not self.isGlobal and player_tag == "":
@@ -84,33 +124,37 @@ class BrawlStats(Serializable):
         for player in playersOnThisTeam:
 
             if self.isGlobal:
-                self.regular_stat_compilers.handle_battle(
-                    MatchData(
-                        battle['event']['map'],
-                        getMode(battle),
-                        player['brawler']['name'],
-                        result_type, is_star_player,
-                        True,
-                        None,
-                        None
+                for recursiveAttributeStructure in self.recursiveAttributeStructures:
+                    recursiveAttributeStructure.handle_battle_result(
+                        MatchData(
+                            battle['event']['map'],
+                            getMode(battle),
+                            player['brawler']['name'],
+                            result_type, is_star_player,
+                            True,
+                            None,
+                            None,
+                            self.getType(battle)
+                        )
                     )
-                )
             else:
                 if player['tag'] != player_tag:
                     continue
 
-                self.regular_stat_compilers.handle_battle(
-                    MatchData(
-                        battle['event']['map'],
-                        getMode(battle),
-                        player['brawler']['name'],
-                        result_type,
-                        is_star_player,
-                        True,
-                        None,
-                        self.getTrophyChange(battle, player_tag)
+                for recursiveAttributeStructure in self.recursiveAttributeStructures:
+                    recursiveAttributeStructure.handle_battle_result(
+                        MatchData(
+                            battle['event']['map'],
+                            getMode(battle),
+                            player['brawler']['name'],
+                            result_type,
+                            is_star_player,
+                            True,
+                            None,
+                            self.getTrophyChange(battle, player_tag),
+                            self.getType(battle)
+                        )
                     )
-                )
     
     def handleDuelsBattle(self, battle, player_tag):
         if not 'players' in battle['battle']:
@@ -126,35 +170,39 @@ class BrawlStats(Serializable):
 
             if self.isGlobal:
                 for brawler in player['brawlers']:
-                    self.regular_stat_compilers.handle_battle(
-                        MatchData(
-                            battle['event']['map'],
-                            getMode(battle),
-                            brawler['name'],
-                            result_type,
-                            False,
-                            False,
-                            None,
-                            None
+                    for recursiveAttributeStructure in self.recursiveAttributeStructures:
+                        recursiveAttributeStructure.handle_battle_result(
+                            MatchData(
+                                battle['event']['map'],
+                                getMode(battle),
+                                brawler['name'],
+                                result_type,
+                                False,
+                                False,
+                                None,
+                                None,
+                                self.getType(battle)
+                            )
                         )
-                    )
             else:
                 if player['tag'] != player_tag:
                     continue
 
                 for brawler in player['brawlers']:
-                    self.regular_stat_compilers.handle_battle(
-                        MatchData(
-                            battle['event']['map'],
-                            getMode(battle),
-                            brawler['name'],
-                            result_type,
-                            False,
-                            False,
-                            battle['battle']['duration'],
-                            self.getTrophyChange(battle, player_tag)
+                    for recursiveAttributeStructure in self.recursiveAttributeStructures:
+                        recursiveAttributeStructure.handle_battle_result(
+                            MatchData(
+                                battle['event']['map'],
+                                getMode(battle),
+                                brawler['name'],
+                                result_type,
+                                False,
+                                False,
+                                battle['battle']['duration'],
+                                self.getTrophyChange(battle, player_tag),
+                                self.getType(battle)
+                            )
                         )
-                    )
 
     def handleStandardBattle(self, battle, player_tag):
         
@@ -170,26 +218,49 @@ class BrawlStats(Serializable):
                     else ("wins" if winningTeamIndex == teamIndex else "losses")
                 )
 
-                compilers_to_update = self.ranked_stat_compilers if battle['battle']['type'] == "soloRanked" else self.regular_stat_compilers
-
                 #If this is player statistics, only include the player
                 if not self.isGlobal and player['tag'] != player_tag:
                     continue
 
-                compilers_to_update.handle_battle(
-                    MatchData(
-                        battle['event']['map'],
-                        getMode(battle),
-                        player['brawler']['name'],
-                        result_type,
-                        is_star_player,
-                        battle['battle']['starPlayer'] is not None,
-                        battle['battle']['duration'],
-                        self.getTrophyChange(battle, player_tag)
+                for recursiveAttributeStructure in self.recursiveAttributeStructures:
+                    recursiveAttributeStructure.handle_battle_result(
+                        MatchData(
+                            battle['event']['map'],
+                            getMode(battle),
+                            player['brawler']['name'],
+                            result_type,
+                            is_star_player,
+                            battle['battle']['starPlayer'] is not None,
+                            battle['battle']['duration'],
+                            self.getTrophyChange(battle, player_tag),
+                            self.getType(battle)
+                        )
                     )
-                )
+
+    def getRecursiveAttributeStructure(self, statPath):
+        if statPath == "regularModeBrawler":
+            return self.typeModeBrawler.get_next_stat_map()["regular"]
+        elif statPath == "regularBrawler":
+            return self.typeBrawler.get_next_stat_map()["regular"]
+        elif statPath == "regularBrawlerModeMap":
+            return self.typeBrawlerModeMap.get_next_stat_map()["regular"]
+        elif statPath == "regularModeMapBrawler":
+            return self.typeModeMapBrawler.get_next_stat_map()["regular"]
+
+        elif statPath == "rankedModeBrawler":
+            return self.typeModeBrawler.get_next_stat_map()["ranked"]
+        elif statPath == "rankedBrawler":
+            return self.typeBrawler.get_next_stat_map()["ranked"]
+        elif statPath == "rankedBrawlerModeMap":
+            return self.typeBrawlerModeMap.get_next_stat_map()["ranked"]
+        elif statPath == "rankedModeMapBrawler":
+            return self.typeModeMapBrawler.get_next_stat_map()["ranked"]
+
+        else:
+            raise KeyError("Invalid Stat Path!")
 
     # Unfinished!
+    # Need to update to new format!
     def merge(self, otherBrawlStats):
 
         if self.isGlobal != otherBrawlStats.isGlobal:
@@ -236,3 +307,6 @@ class BrawlStats(Serializable):
             return game['battle']['rank'] <= math.floor(len(game['battle']['players']) / 2)
         else:
             return game['battle']['rank'] <= math.floor(len(game['battle']['teams']) / 2)
+    def getType(self, battle):
+        return "ranked" if battle['battle']['type'] == "soloRanked" else "regular"
+    

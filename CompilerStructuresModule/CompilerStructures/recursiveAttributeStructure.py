@@ -65,6 +65,9 @@ class RecursiveAttributeStructure(Serializable):
             stat_value = match_data.__getitem__(self.stat_chain[0])
 
             if stat_value not in stat_map:
-                stat_map[stat_value] = RecursiveAttributeStructure(self.isGlobal, self.stat_chain[1:])
+                self.populateNextStructure(stat_value)
 
             stat_map[stat_value].handle_battle_result(match_data=match_data)
+    
+    def populateNextStructure(self, stat_value):
+        self.get_next_stat_map()[stat_value] = RecursiveAttributeStructure(self.isGlobal, self.stat_chain[1:])

@@ -94,21 +94,17 @@ def getPlayerStatsObject(playerTag, dynamodb):
 
         if len(stats) == 7:
 
-            playerData = {
-                "regular_stat_compilers": {
-                    "mode_map_brawler": stats.get("regularModeMapBrawler", {}),
-                    "mode_brawler": stats.get("regularModeBrawler", {}),
-                    "brawler_mode_map": stats.get("regularBrawlerModeMap", {}),
-                },
-                "ranked_stat_compilers": {
-                    "mode_map_brawler": stats.get("rankedModeMapBrawler", {}),
-                    "mode_brawler": stats.get("rankedModeBrawler", {}),
-                    "brawler_mode_map": stats.get("rankedBrawlerModeMap", {}),
-                },
+            playerDataJSON = {
+                "regular_mode_map_brawler": stats.get("regularModeMapBrawler", {}),
+                "regular_mode_brawler": stats.get("regularModeBrawler", {}),
+                "regular_brawler_mode_map": stats.get("regularBrawlerModeMap", {}),
+                "ranked_mode_map_brawler": stats.get("rankedModeMapBrawler", {}),
+                "ranked_mode_brawler": stats.get("rankedModeBrawler", {}),
+                "ranked_brawler_mode_map": stats.get("rankedBrawlerModeMap", {}),
                 "showdown_rank_compilers": stats.get("showdownRankCompilers", {})
             }
 
-            return BrawlStats(False, playerData)
+            return BrawlStats(False, playerDataJSON)
         else:
             print("No stats found")
             return BrawlStats(False)
@@ -135,33 +131,33 @@ def compileUncachedStats(playerTag, dynamodb):
         {
             "playerTag": playerTag,
             "statType": "regularModeMapBrawler",
-            "stats": json.dumps(fullyJSONifyData(playerStats.regular_stat_compilers.mode_map_brawler))
+            "stats": json.dumps(fullyJSONifyData(playerStats.getRecursiveAttributeStructure("regularModeMapBrawler")))
         },
         {
             "playerTag": playerTag,
             "statType": "regularModeBrawler",
-            "stats": json.dumps(fullyJSONifyData(playerStats.regular_stat_compilers.mode_brawler))
+            "stats": json.dumps(fullyJSONifyData(playerStats.getRecursiveAttributeStructure("regularModeBrawler")))
         },
         {
             "playerTag": playerTag,
             "statType": "regularBrawlerModeMap",
-            "stats": json.dumps(fullyJSONifyData(playerStats.regular_stat_compilers.brawler_mode_map))
+            "stats": json.dumps(fullyJSONifyData(playerStats.getRecursiveAttributeStructure("regularBrawlerModeMap")))
         },
         # Ranked
         {
             "playerTag": playerTag,
             "statType": "rankedModeMapBrawler",
-            "stats": json.dumps(fullyJSONifyData(playerStats.ranked_stat_compilers.mode_map_brawler))
+            "stats": json.dumps(fullyJSONifyData(playerStats.getRecursiveAttributeStructure("rankedModeMapBrawler")))
         },
         {
             "playerTag": playerTag,
             "statType": "rankedModeBrawler",
-            "stats": json.dumps(fullyJSONifyData(playerStats.ranked_stat_compilers.mode_brawler))
+            "stats": json.dumps(fullyJSONifyData(playerStats.getRecursiveAttributeStructure("rankedModeBrawler")))
         },
         {
             "playerTag": playerTag,
             "statType": "rankedBrawlerModeMap",
-            "stats": json.dumps(fullyJSONifyData(playerStats.ranked_stat_compilers.brawler_mode_map))
+            "stats": json.dumps(fullyJSONifyData(playerStats.getRecursiveAttributeStructure("rankedBrawlerModeMap")))
         },
         #showdown
         {
