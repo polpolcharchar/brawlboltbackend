@@ -36,7 +36,7 @@ def getApiProxyRecentGames(playerTag):
     return requestApiProxy(endpoint).get("items", [])
 
 # Pure Api Functions:
-def getApiRecentGames(playerTag):
+def getApiRecentGames(playerTag, doErrorPrinting=True):
 
     BRAWL_API_KEY = getSecret("BRAWL_API_KEY")
 
@@ -47,6 +47,7 @@ def getApiRecentGames(playerTag):
     if response.status_code == 200:
         return response.json().get("items", [])
     else:
-        print(f"Failed to fetch data for {playerTag}. HTTP Status Code: {response.status_code}")
-        print("Response Message:", response.text)
+        if doErrorPrinting:
+            print(f"Failed to fetch data for {playerTag}. HTTP Status Code: {response.status_code}")
+            print("Response Message:", response.text)
         return []

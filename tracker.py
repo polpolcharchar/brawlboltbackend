@@ -3,15 +3,15 @@ from DatabaseUtility.gamesUtility import GAMES_TABLE_NAME, getMostRecentGame
 from DatabaseUtility.itemUtility import batchWriteToDynamoDB, prepareItem
 from DatabaseUtility.playerUtility import getAllPlayerTagsSetInRecentDays
 from apiUtility import getApiRecentGames
+from datetime import datetime
 
 def trackRecentUniqueGames(playerTag, dynamodb):
     mostRecentGame = getMostRecentGame(playerTag, dynamodb)
     mostRecentBattleTime = mostRecentGame["battleTime"]["S"] if mostRecentGame else None
 
-    recentGames = getApiRecentGames(playerTag)
+    recentGames = getApiRecentGames(playerTag, False)
     if len(recentGames) == 0:
-        print(f"No recent games found for {playerTag}.")
-        return
+        return 0
 
     gamesYetToBeTracked = [
         game for game in recentGames
@@ -19,8 +19,7 @@ def trackRecentUniqueGames(playerTag, dynamodb):
     ]
 
     if len(gamesYetToBeTracked) == 0:
-        print(f"No uncached games for {playerTag}.")
-        return
+        return 0
 
     for game in gamesYetToBeTracked:
         game["statsCached"] = False
@@ -40,7 +39,7 @@ def trackRecentUniqueGames(playerTag, dynamodb):
 
     batchWriteToDynamoDB(uniqueItems, GAMES_TABLE_NAME, dynamodb)
 
-    print(f"{playerTag}: {len(uniqueItems)}")
+    return len(uniqueItems)
 
 if __name__ == "__main__":
     DYNAMODB_REGION = 'us-west-1'
@@ -48,5 +47,8 @@ if __name__ == "__main__":
 
     playerTags = getAllPlayerTagsSetInRecentDays(dynamodb, numDays=60)
 
+    numGamesTracked = 0
     for playerTag in playerTags:
-        trackRecentUniqueGames(playerTag, dynamodb)
+        numGamesTracked += trackRecentUniqueGames(playerTag, dynamodb)
+    
+    print(f"{datetime.now().strftime('%m/%d/%y %I %p')}: {len(playerTags)} players tracked and {numGamesTracked} games saved.")
