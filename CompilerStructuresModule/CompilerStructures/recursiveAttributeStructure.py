@@ -33,7 +33,6 @@ class RecursiveAttributeStructure(Serializable):
         if not self.stat_chain:
             return {}
 
-        # return getattr(self, self.stat_chain[0])
         return getattr(self, 'stat_map')
 
     def handle_battle_result(self, match_data):
@@ -41,7 +40,6 @@ class RecursiveAttributeStructure(Serializable):
 
         if self.stat_chain:
             stat_map = self.get_next_stat_map()
-            # stat_value = match_data[self.stat_chain[0]]
             stat_value = match_data.__getitem__(self.stat_chain[0])
 
             if stat_value not in stat_map:
