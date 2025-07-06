@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 import json
 from apiUtility import getApiProxyPlayerInfo
 from DatabaseUtility.gamesUtility import batchWriteGamesToDynamodb, getAllUncachedGames, saveRecentGames
-from DatabaseUtility.itemUtility import deserializeDynamoDbItem, fullyJSONifyData, prepareItem
+from DatabaseUtility.itemUtility import deserializeDynamoDbItem, prepareItem
 from brawlStats import BrawlStats
 
 PLAYER_INFO_TABLE = 'BrawlStarsPlayersInfo'
@@ -131,33 +131,33 @@ def compileUncachedStats(playerTag, dynamodb):
         {
             "playerTag": playerTag,
             "statType": "regularModeMapBrawler",
-            "stats": json.dumps(fullyJSONifyData(playerStats.getRecursiveAttributeStructure("regularModeMapBrawler")))
+            "stats": json.dumps(playerStats.getRecursiveAttributeStructure("regularModeMapBrawler").to_dict())
         },
         {
             "playerTag": playerTag,
             "statType": "regularModeBrawler",
-            "stats": json.dumps(fullyJSONifyData(playerStats.getRecursiveAttributeStructure("regularModeBrawler")))
+            "stats": json.dumps(playerStats.getRecursiveAttributeStructure("regularModeBrawler").to_dict())
         },
         {
             "playerTag": playerTag,
             "statType": "regularBrawlerModeMap",
-            "stats": json.dumps(fullyJSONifyData(playerStats.getRecursiveAttributeStructure("regularBrawlerModeMap")))
+            "stats": json.dumps(playerStats.getRecursiveAttributeStructure("regularBrawlerModeMap").to_dict())
         },
         # Ranked
         {
             "playerTag": playerTag,
             "statType": "rankedModeMapBrawler",
-            "stats": json.dumps(fullyJSONifyData(playerStats.getRecursiveAttributeStructure("rankedModeMapBrawler")))
+            "stats": json.dumps(playerStats.getRecursiveAttributeStructure("rankedModeMapBrawler").to_dict())
         },
         {
             "playerTag": playerTag,
             "statType": "rankedModeBrawler",
-            "stats": json.dumps(fullyJSONifyData(playerStats.getRecursiveAttributeStructure("rankedModeBrawler")))
+            "stats": json.dumps(playerStats.getRecursiveAttributeStructure("rankedModeBrawler").to_dict())
         },
         {
             "playerTag": playerTag,
             "statType": "rankedBrawlerModeMap",
-            "stats": json.dumps(fullyJSONifyData(playerStats.getRecursiveAttributeStructure("rankedBrawlerModeMap")))
+            "stats": json.dumps(playerStats.getRecursiveAttributeStructure("rankedBrawlerModeMap").to_dict())
         },
         #showdown
         {

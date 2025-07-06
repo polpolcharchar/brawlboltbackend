@@ -2,7 +2,6 @@ import json
 import boto3
 from datetime import datetime
 from DatabaseUtility.globalUtility import getDeserializedGlobalStats, getSpecificGlobalStatOverTime
-from DatabaseUtility.itemUtility import fullyJSONifyData
 from DatabaseUtility.playerUtility import beginTrackingPlayer, compileUncachedStats, getPlayerCompiledStatsJSON, getPlayerInfo, updateStatsLastAccessed
 
 CORS_HEADERS = {
@@ -33,7 +32,7 @@ def lambda_handler(event, context):
 
         return {
             'statusCode': 200,
-            'body': json.dumps(fullyJSONifyData(g)),
+            'body': json.dumps(g),
             'headers': CORS_HEADERS,
         }
 

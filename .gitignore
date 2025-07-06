@@ -7,3 +7,4 @@ __pycache__/
 lambda_function.zip
 /GlobalCompiler/
 globalCompiler.py
+test.py

@@ -35,8 +35,7 @@ def convertToDynamodbFormat(value):
 def deserializeDynamoDbItem(dynamodbItem):
     return {key: deserializer.deserialize(value) for key, value in dynamodbItem.items()}
 
-#Used for getting rid of decimals and weird sustaining RecursiveAttributeStructure
-#Should be improved to removal at some point
+# Currently only used in globalUtility, see getSpecificGlobalStatOverTime, can be removed at some point
 def fullyJSONifyData(d):
     if isinstance(d, RecursiveAttributeStructure):
         return d.to_dict()
