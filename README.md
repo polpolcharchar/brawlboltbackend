@@ -80,7 +80,7 @@ It is easy to access these values for each game, and it isn't too difficult to c
 
 ### Statistic Format
 
-It would be possible to store all possible combinations of attributes, but this would be very inefficient. Statistic values are only created for areas that apply to the player (wins for Spike are not tracked until a player has played Spike), and they are saved recursively. The [Recursive Attribute Structure](/CompilerStructuresModule/CompilerStructures/recursiveAttributeStructure.py) enables combinations of attributes. For player statistics, there are three recursive attribute paths: mode, map, brawler; brawler, mode, map; and mode, brawler. This means that it is possible to get statistics for any combination of mode, map, and brawler values.
+It would be possible to store all possible combinations of attributes, but this would be very inefficient. Statistic values are only created for areas that apply to the player (wins for Spike are not tracked until a player has played Spike), and they are saved recursively. The [Game Attribute Trie](/CompilerStructuresModule/CompilerStructures/gameAttributeTrie.py) structure enables combinations of attributes. For player statistics, there are three recursive attribute paths: mode, map, brawler; brawler, mode, map; and mode, brawler. This means that it is possible to get statistics for any combination of mode, map, and brawler values.
 
 ## Dependencies:
 

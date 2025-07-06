@@ -131,33 +131,33 @@ def compileUncachedStats(playerTag, dynamodb):
         {
             "playerTag": playerTag,
             "statType": "regularModeMapBrawler",
-            "stats": json.dumps(playerStats.getRecursiveAttributeStructure("regularModeMapBrawler").to_dict())
+            "stats": json.dumps(playerStats.getGameAttributeTrie("regularModeMapBrawler").to_dict())
         },
         {
             "playerTag": playerTag,
             "statType": "regularModeBrawler",
-            "stats": json.dumps(playerStats.getRecursiveAttributeStructure("regularModeBrawler").to_dict())
+            "stats": json.dumps(playerStats.getGameAttributeTrie("regularModeBrawler").to_dict())
         },
         {
             "playerTag": playerTag,
             "statType": "regularBrawlerModeMap",
-            "stats": json.dumps(playerStats.getRecursiveAttributeStructure("regularBrawlerModeMap").to_dict())
+            "stats": json.dumps(playerStats.getGameAttributeTrie("regularBrawlerModeMap").to_dict())
         },
         # Ranked
         {
             "playerTag": playerTag,
             "statType": "rankedModeMapBrawler",
-            "stats": json.dumps(playerStats.getRecursiveAttributeStructure("rankedModeMapBrawler").to_dict())
+            "stats": json.dumps(playerStats.getGameAttributeTrie("rankedModeMapBrawler").to_dict())
         },
         {
             "playerTag": playerTag,
             "statType": "rankedModeBrawler",
-            "stats": json.dumps(playerStats.getRecursiveAttributeStructure("rankedModeBrawler").to_dict())
+            "stats": json.dumps(playerStats.getGameAttributeTrie("rankedModeBrawler").to_dict())
         },
         {
             "playerTag": playerTag,
             "statType": "rankedBrawlerModeMap",
-            "stats": json.dumps(playerStats.getRecursiveAttributeStructure("rankedBrawlerModeMap").to_dict())
+            "stats": json.dumps(playerStats.getGameAttributeTrie("rankedBrawlerModeMap").to_dict())
         },
         #showdown
         {

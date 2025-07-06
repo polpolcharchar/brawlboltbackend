@@ -1,7 +1,7 @@
 import math
 from CompilerStructuresModule.CompilerStructures.frequencyCompiler import FrequencyCompiler
 from CompilerStructuresModule.CompilerStructures.matchData import MatchData
-from CompilerStructuresModule.CompilerStructures.recursiveAttributeStructure import RecursiveAttributeStructure
+from CompilerStructuresModule.CompilerStructures.gameAttributeTrie import GameAttributeTrie
 from CompilerStructuresModule.CompilerStructures.serializable import Serializable
 from DatabaseUtility.modeToMapOverrideUtility import getMode
 
@@ -11,20 +11,20 @@ class BrawlStats(Serializable):
 
         self.isGlobal = isGlobal
 
-        self.typeModeBrawler = RecursiveAttributeStructure(isGlobal, ["type", "mode", "brawler"])
+        self.typeModeBrawler = GameAttributeTrie(isGlobal, ["type", "mode", "brawler"])
         self.typeModeBrawler.populateNextStructure("regular", playerDataJSON["regular_mode_brawler"] if playerDataJSON else None)
         self.typeModeBrawler.populateNextStructure("ranked", playerDataJSON["ranked_mode_brawler"] if playerDataJSON else None)
 
         if self.isGlobal:
-            self.typeBrawler = RecursiveAttributeStructure(isGlobal, ["type", "brawler"])
+            self.typeBrawler = GameAttributeTrie(isGlobal, ["type", "brawler"])
             self.typeBrawler.populateNextStructure("regular", playerDataJSON["regular_brawler"] if playerDataJSON else None)
             self.typeBrawler.populateNextStructure("ranked", playerDataJSON["ranked_brawler"] if playerDataJSON else None)
         else:
-            self.typeBrawlerModeMap = RecursiveAttributeStructure(isGlobal, ["type", "brawler", "mode", "map"])
+            self.typeBrawlerModeMap = GameAttributeTrie(isGlobal, ["type", "brawler", "mode", "map"])
             self.typeBrawlerModeMap.populateNextStructure("regular", playerDataJSON["regular_brawler_mode_map"] if playerDataJSON else None)
             self.typeBrawlerModeMap.populateNextStructure("ranked", playerDataJSON["ranked_brawler_mode_map"] if playerDataJSON else None)
 
-            self.typeModeMapBrawler = RecursiveAttributeStructure(isGlobal, ["type", "mode", "map", "brawler"])
+            self.typeModeMapBrawler = GameAttributeTrie(isGlobal, ["type", "mode", "map", "brawler"])
             self.typeModeMapBrawler.populateNextStructure("regular", playerDataJSON["regular_mode_map_brawler"] if playerDataJSON else None)
             self.typeModeMapBrawler.populateNextStructure("ranked", playerDataJSON["ranked_mode_map_brawler"] if playerDataJSON else None)
 
@@ -34,16 +34,16 @@ class BrawlStats(Serializable):
             self.showdown_rank_compilers = {key: FrequencyCompiler(value) for key, value in playerDataJSON['showdown_rank_compilers'].items()}
 
         # Put all in a list for easy compiling
-        self.recursiveAttributeStructures = []
-        self.recursiveAttributeStructures.append(self.typeModeBrawler)
+        self.gameAttributeTries = []
+        self.gameAttributeTries.append(self.typeModeBrawler)
         if self.isGlobal:
-            self.recursiveAttributeStructures.append(self.typeBrawler)
+            self.gameAttributeTries.append(self.typeBrawler)
         else:
-            self.recursiveAttributeStructures.append(self.typeBrawlerModeMap)
-            self.recursiveAttributeStructures.append(self.typeModeMapBrawler)
+            self.gameAttributeTries.append(self.typeBrawlerModeMap)
+            self.gameAttributeTries.append(self.typeModeMapBrawler)
 
     def exclude_attributes(self):
-        return ["isGlobal", "recursiveAttributeStructures"]
+        return ["isGlobal", "gameAttributeTries"]
 
     def handleBattles(self, battles, player_tag=""):
         if not self.isGlobal and player_tag == "":
@@ -104,8 +104,8 @@ class BrawlStats(Serializable):
         for player in playersOnThisTeam:
 
             if self.isGlobal:
-                for recursiveAttributeStructure in self.recursiveAttributeStructures:
-                    recursiveAttributeStructure.handle_battle_result(
+                for gameAttributeTrie in self.gameAttributeTries:
+                    gameAttributeTrie.handle_battle_result(
                         MatchData(
                             battle['event']['map'],
                             getMode(battle),
@@ -121,8 +121,8 @@ class BrawlStats(Serializable):
                 if player['tag'] != player_tag:
                     continue
 
-                for recursiveAttributeStructure in self.recursiveAttributeStructures:
-                    recursiveAttributeStructure.handle_battle_result(
+                for gameAttributeTrie in self.gameAttributeTries:
+                    gameAttributeTrie.handle_battle_result(
                         MatchData(
                             battle['event']['map'],
                             getMode(battle),
@@ -150,8 +150,8 @@ class BrawlStats(Serializable):
 
             if self.isGlobal:
                 for brawler in player['brawlers']:
-                    for recursiveAttributeStructure in self.recursiveAttributeStructures:
-                        recursiveAttributeStructure.handle_battle_result(
+                    for gameAttributeTrie in self.gameAttributeTries:
+                        gameAttributeTrie.handle_battle_result(
                             MatchData(
                                 battle['event']['map'],
                                 getMode(battle),
@@ -169,8 +169,8 @@ class BrawlStats(Serializable):
                     continue
 
                 for brawler in player['brawlers']:
-                    for recursiveAttributeStructure in self.recursiveAttributeStructures:
-                        recursiveAttributeStructure.handle_battle_result(
+                    for gameAttributeTrie in self.gameAttributeTries:
+                        gameAttributeTrie.handle_battle_result(
                             MatchData(
                                 battle['event']['map'],
                                 getMode(battle),
@@ -202,8 +202,8 @@ class BrawlStats(Serializable):
                 if not self.isGlobal and player['tag'] != player_tag:
                     continue
 
-                for recursiveAttributeStructure in self.recursiveAttributeStructures:
-                    recursiveAttributeStructure.handle_battle_result(
+                for gameAttributeTrie in self.gameAttributeTries:
+                    gameAttributeTrie.handle_battle_result(
                         MatchData(
                             battle['event']['map'],
                             getMode(battle),
@@ -217,7 +217,7 @@ class BrawlStats(Serializable):
                         )
                     )
 
-    def getRecursiveAttributeStructure(self, statPath):
+    def getGameAttributeTrie(self, statPath):
         if statPath == "regularModeBrawler":
             return self.typeModeBrawler.get_next_stat_map()["regular"]
         elif statPath == "regularBrawler":

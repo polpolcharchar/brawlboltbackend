@@ -3,7 +3,7 @@ from CompilerStructuresModule.CompilerStructures.playerResultCompiler import Pla
 from CompilerStructuresModule.CompilerStructures.serializable import Serializable
 
 
-class RecursiveAttributeStructure(Serializable):
+class GameAttributeTrie(Serializable):
     def __init__(self, isGlobal, stat_chains, fromDict=None):
         if fromDict and not isinstance(fromDict, dict):
             fromDict = fromDict.to_dict()
@@ -17,7 +17,7 @@ class RecursiveAttributeStructure(Serializable):
         self.stat_chain = stat_chains
         
         if self.stat_chain:
-            nextStatMap = {key: RecursiveAttributeStructure(isGlobal, value['stat_chain'], value) for key, value in (fromDict['stat_map'] if fromDict else {}).items()}
+            nextStatMap = {key: GameAttributeTrie(isGlobal, value['stat_chain'], value) for key, value in (fromDict['stat_map'] if fromDict else {}).items()}
             setattr(self, 'stat_map', nextStatMap)
     
     def exclude_attributes(self):
@@ -48,4 +48,4 @@ class RecursiveAttributeStructure(Serializable):
             stat_map[stat_value].handle_battle_result(match_data=match_data)
     
     def populateNextStructure(self, stat_value, fromDict=None):
-        self.get_next_stat_map()[stat_value] = RecursiveAttributeStructure(self.isGlobal, self.stat_chain[1:], fromDict)
+        self.get_next_stat_map()[stat_value] = GameAttributeTrie(self.isGlobal, self.stat_chain[1:], fromDict)

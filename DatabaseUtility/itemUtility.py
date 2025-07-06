@@ -2,7 +2,7 @@ from decimal import Decimal
 from boto3.dynamodb.types import TypeDeserializer
 
 from CompilerStructuresModule.CompilerStructures.frequencyCompiler import FrequencyCompiler
-from CompilerStructuresModule.CompilerStructures.recursiveAttributeStructure import RecursiveAttributeStructure
+from CompilerStructuresModule.CompilerStructures.gameAttributeTrie import GameAttributeTrie
 
 deserializer = TypeDeserializer()
 
@@ -37,7 +37,7 @@ def deserializeDynamoDbItem(dynamodbItem):
 
 # Currently only used in globalUtility, see getSpecificGlobalStatOverTime, can be removed at some point
 def fullyJSONifyData(d):
-    if isinstance(d, RecursiveAttributeStructure):
+    if isinstance(d, GameAttributeTrie):
         return d.to_dict()
     elif isinstance(d, FrequencyCompiler):
         return d.to_dict()
