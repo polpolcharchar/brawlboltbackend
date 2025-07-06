@@ -64,6 +64,25 @@ def getAllPlayerTagsSetInRecentDays(dynamodb, numDays=30):
 
     return tags
 
+def getPlayerRegularModeMapBrawlerJSON(playerTag, dynamodb):
+    try:
+
+        response = dynamodb.query(
+            TableName=PLAYER_COMPILED_STATS_TABLE,
+            KeyConditionExpression="playerTag = :playerTag AND statType = :statType",
+            ExpressionAttributeValues={
+                ":playerTag": {"S": playerTag},
+                ":statType": {"S": "regularModeMapBrawler"}
+            }
+        )
+
+        if response["Items"] is not None:
+            return json.loads(response["Items"][0]["stats"]["S"])
+        else:
+            return None
+    except Exception as e:
+        return None
+
 def getPlayerCompiledStatsJSON(playerTag, dynamodb):
     try:
         # Query all items for the given playerTag

@@ -2,7 +2,7 @@ import json
 import boto3
 from datetime import datetime
 from DatabaseUtility.globalUtility import getDeserializedGlobalStats, getSpecificGlobalStatOverTime
-from DatabaseUtility.playerUtility import beginTrackingPlayer, compileUncachedStats, getPlayerCompiledStatsJSON, getPlayerInfo, updateStatsLastAccessed
+from DatabaseUtility.playerUtility import beginTrackingPlayer, compileUncachedStats, getPlayerCompiledStatsJSON, getPlayerInfo, getPlayerRegularModeMapBrawlerJSON, updateStatsLastAccessed
 
 CORS_HEADERS = {
   'Content-Type': 'application/json',
@@ -66,6 +66,20 @@ def lambda_handler(event, context):
             'headers': CORS_HEADERS,
         }
 
+    elif eventBody['type'] == 'getBaseRegularModeMapBrawler':
+        #Only include overall data from 1 level deeper in the stat map:
+        resultBody = {
+            "regularModeMapBrawler": {
+                "stat_map": {key: {"overall": value["overall"]} for key, value in getPlayerRegularModeMapBrawlerJSON(eventBody["playerTag"], dynamodb)["stat_map"].items()}
+            }
+        }
+
+        return {
+            'statusCode': 200,
+            'body': json.dumps(resultBody),
+            'headers': CORS_HEADERS
+        }
+
     else:
         #Standard request 1
         response = getPlayerInfo(eventBody['playerTag'], dynamodb)
@@ -80,6 +94,9 @@ def lambda_handler(event, context):
                     'body': json.dumps({'message': "Tracking Initialization Failed: Player Doesn't Exist"}),
                     'headers': CORS_HEADERS,
                 }
+            
+            # Always compile new games for new players
+            compileUncachedStats(eventBody['playerTag'], dynamodb)
 
             response = getPlayerInfo(eventBody['playerTag'], dynamodb)
 
@@ -90,13 +107,6 @@ def lambda_handler(event, context):
                     'body': json.dumps({'message': 'Error Adding Player'}),
                     'headers': CORS_HEADERS,
                 }
-
-        #Test recompiling:
-        shouldRecompileStats = False
-        lastCompiledDate = datetime.fromisoformat(response["Items"][0]["statsLastCompiled"]["S"])
-        shouldRecompileStats = (datetime.now() - lastCompiledDate).days > 3
-        if shouldRecompileStats:
-            compileUncachedStats(eventBody['playerTag'], dynamodb)
         
         #Standard request 2
         updateStatsLastAccessed(eventBody['playerTag'], dynamodb)
