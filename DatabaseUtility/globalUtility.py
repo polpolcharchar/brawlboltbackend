@@ -46,8 +46,10 @@ def getSpecificGlobalStatOverTime(statTypeString, dynamodb, limit=20):
     # Specific global stats used to be stored using dynamodb structures, using convertToDynamodbFormat and deserializeDynamoDbItem
     # Now, they are stored as stringified json
     # This requires less storage and removes the need to deal with type Decimal being returned
-    # Change made on 7/6 - this first if statement can be removed after a significant amount of time
-    if isinstance(response['Items'][0], dict):
-        return [fullyJSONifyData(deserializeDynamoDbItem(item)) for item in response['Items']]
-    else:
-        return [json.loads(item['stats']['S']) for item in response['Items']]
+    # Change made on 7/6 - this else statement can be removed after a significant amount of time
+    return [
+            {key: (json.loads(value) if key == "stats" else value) for key, value in deserializeDynamoDbItem(item).items()}
+            if 'S' in item['stats']
+            else fullyJSONifyData(deserializeDynamoDbItem(item))
+            for item in response['Items']
+            ]
