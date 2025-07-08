@@ -79,3 +79,23 @@ def batchWriteToDynamoDB(items, tableName, dynamodb):
                 )
     except Exception as e:
         print(f"Error writing batch to DynamoDB: {e.response['Error']['Message']}")
+
+def batch_get_all_items(table_name, keys, dynamodb, projection_expression=None):
+    # AI
+    request_items = {
+        table_name: {
+            'Keys': keys
+        }
+    }
+    if projection_expression:
+        request_items[table_name]['ProjectionExpression'] = projection_expression
+
+    results = []
+    while request_items:
+        response = dynamodb.batch_get_item(RequestItems=request_items)
+        results.extend(response['Responses'].get(table_name, []))
+
+        unprocessed = response.get('UnprocessedKeys', {})
+        request_items = unprocessed if unprocessed else None
+
+    return results
