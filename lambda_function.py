@@ -2,7 +2,9 @@ import json
 import boto3
 from datetime import datetime
 from DatabaseUtility.globalUtility import getDeserializedGlobalStats, getSpecificGlobalStatOverTime
+from DatabaseUtility.itemUtility import decimal_serializer
 from DatabaseUtility.playerUtility import beginTrackingPlayer, compileUncachedStats, getPlayerCompiledStatsJSON, getPlayerInfo, getPlayerRegularModeMapBrawlerJSON, updateStatsLastAccessed
+from DatabaseUtility.trieUtility import fetchTrieData
 
 CORS_HEADERS = {
   'Content-Type': 'application/json',
@@ -65,6 +67,36 @@ def lambda_handler(event, context):
             'body': json.dumps({'message': 'Invalid playerTag: cannot contain the letter o'}),
             'headers': CORS_HEADERS,
         }
+
+    elif eventBody['type'] == 'getTrieData':
+
+        requestedType = eventBody.get('requestType')
+        requestedMap = eventBody.get('requestMap')
+        requestedMode = eventBody.get('requestMode')
+        requestedBrawler = eventBody.get('brawler')
+
+        targetAttribute = eventBody['targetAttribute']
+
+        basePath = eventBody['playerTag']
+        filterID = eventBody['filterID']
+
+        fetchResult = fetchTrieData(
+            basePath=basePath,
+            filterID=filterID,
+            type=requestedType,
+            mode=requestedMode,
+            map=requestedMap,
+            brawler=requestedBrawler,
+            targetAttribute=targetAttribute,
+            dynamodb=dynamodb
+        )
+
+        return {
+            'statusCode': 200,
+            'body': json.dumps(fetchResult, default=lambda x: decimal_serializer(x)),
+            'headers': CORS_HEADERS
+        }
+
 
     elif eventBody['type'] == 'getBaseRegularModeMapBrawler':
         #Only include overall data from 1 level deeper in the stat map:

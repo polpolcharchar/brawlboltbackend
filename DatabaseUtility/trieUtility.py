@@ -13,7 +13,7 @@ from boto3.dynamodb.types import TypeDeserializer
 BRAWL_TRIE_TABLE = "BrawlTrieStorage"
 
 # Saving:
-def saveOldPlayerStatsObjectToTrieDatabase(playerTag, dynamodb):
+def saveOldPlayerStatsObjectToTrieDatabase(playerTag, filterID, dynamodb):
     brawlStats = getPlayerStatsObject(playerTag, dynamodb)
     tries = {
         "$modeBrawler": brawlStats.typeModeBrawler, 
@@ -22,7 +22,7 @@ def saveOldPlayerStatsObjectToTrieDatabase(playerTag, dynamodb):
     }
     for key, value in tries.items():
         jsonified = value.to_dict()
-        saveTrie(jsonified, playerTag + key, "overall", dynamodb)
+        saveTrie(jsonified, playerTag + key, filterID, dynamodb)
 def saveOldGlobalStatsObjectToTrieDatabase(datetime, dynamodb):
     globalStats = getGlobalStatsObject(datetime, dynamodb)
     tries = {
@@ -484,7 +484,6 @@ def getMatchDataObjectsFromGame(game, isGlobal, playerTag = ""):
         return []
     else:
         return getMatchDataFromRegular(game, playerTag)
-
 
 
 # Fetching:

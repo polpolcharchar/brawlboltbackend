@@ -35,6 +35,14 @@ def convertToDynamodbFormat(value):
 def deserializeDynamoDbItem(dynamodbItem):
     return {key: deserializer.deserialize(value) for key, value in dynamodbItem.items()}
 
+def decimal_serializer(obj) :
+  if isinstance(obj, Decimal) :
+    ratio = obj.as_integer_ratio()
+    if ratio[1] == 1 :
+      return int(obj)
+    return float(obj)
+  return obj
+
 # Currently only used in globalUtility, see getSpecificGlobalStatOverTime, can be removed at some point
 def fullyJSONifyData(d):
     if isinstance(d, GameAttributeTrie):
