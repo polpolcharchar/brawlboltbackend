@@ -1,8 +1,11 @@
-import json
+import math
 
 from CompilerStructuresModule.CompilerStructures.globalResultCompiler import GlobalResultCompiler
+from CompilerStructuresModule.CompilerStructures.matchData import MatchData
 from CompilerStructuresModule.CompilerStructures.playerResultCompiler import PlayerResultCompiler
+from DatabaseUtility.globalUtility import getGlobalStatsObject
 from DatabaseUtility.itemUtility import batch_get_all_items, batchWriteToDynamoDB, prepareItem
+from DatabaseUtility.modeToMapOverrideUtility import getMode
 from DatabaseUtility.playerUtility import getPlayerStatsObject
 
 from boto3.dynamodb.types import TypeDeserializer
@@ -13,16 +16,25 @@ BRAWL_TRIE_TABLE = "BrawlTrieStorage"
 def saveOldPlayerStatsObjectToTrieDatabase(playerTag, dynamodb):
     brawlStats = getPlayerStatsObject(playerTag, dynamodb)
     tries = {
-                "$modeBrawler": brawlStats.typeModeBrawler, 
-                "$modeMapBrawler": brawlStats.typeModeMapBrawler, 
-                "$brawlerModeMap": brawlStats.typeBrawlerModeMap
-            }
+        "$modeBrawler": brawlStats.typeModeBrawler, 
+        "$modeMapBrawler": brawlStats.typeModeMapBrawler, 
+        "$brawlerModeMap": brawlStats.typeBrawlerModeMap
+    }
     for key, value in tries.items():
         jsonified = value.to_dict()
-        saveTrie(jsonified, playerTag + key, dynamodb)
+        saveTrie(jsonified, playerTag + key, "overall", dynamodb)
+def saveOldGlobalStatsObjectToTrieDatabase(datetime, dynamodb):
+    globalStats = getGlobalStatsObject(datetime, dynamodb)
+    tries = {
+        "$modeBrawler": globalStats.typeModeBrawler, 
+        "$brawler": globalStats.typeBrawler, 
+    }
+    for key, value in tries.items():
+        jsonified = value.to_dict()
+        saveTrie(jsonified, "global" + key, datetime, dynamodb)
 
-def saveTrie(gameAttributeTrieJSON, basePath, dynamodb):
-    allItems = getAllTrieNodeItems(gameAttributeTrieJSON, basePath, dynamodb)
+def saveTrie(gameAttributeTrieJSON, basePath, filterID, dynamodb):
+    allItems = getAllTrieNodeItems(gameAttributeTrieJSON, basePath, filterID, dynamodb)
 
     preparedItems = [prepareItem(item) for item in allItems]
 
@@ -30,7 +42,7 @@ def saveTrie(gameAttributeTrieJSON, basePath, dynamodb):
     batchWriteToDynamoDB(preparedItems, BRAWL_TRIE_TABLE, dynamodb)
     print("Done.")
 
-def getAllTrieNodeItems(gameAttributeTrieJSON, currentPath, dynamodb):
+def getAllTrieNodeItems(gameAttributeTrieJSON, currentPath, filterID, dynamodb):
 
     items = []
     childrenPathIDs = []
@@ -43,17 +55,17 @@ def getAllTrieNodeItems(gameAttributeTrieJSON, currentPath, dynamodb):
 
         childrenPathIDs.append(childPath)
 
-        childrenItems = getAllTrieNodeItems(value, childPath, dynamodb)
+        childrenItems = getAllTrieNodeItems(value, childPath, filterID, dynamodb)
         items.extend(childrenItems)
     
-    items.append(getTrieNodeItem(gameAttributeTrieJSON["overall"], currentPath, childrenPathIDs))
+    items.append(getTrieNodeItem(gameAttributeTrieJSON["overall"], currentPath, filterID, childrenPathIDs))
 
     return items
     
-def getTrieNodeItem(resultCompilerJSON, pathID, childrenPathIDs):
+def getTrieNodeItem(resultCompilerJSON, pathID, filterID, childrenPathIDs):
     item = {
         "pathID": pathID,
-        "filterID": "temp",
+        "filterID": filterID,
         "childrenPathIDs": childrenPathIDs,
         "resultCompiler": resultCompilerJSON
     }
@@ -61,23 +73,9 @@ def getTrieNodeItem(resultCompilerJSON, pathID, childrenPathIDs):
     return item
 
 # Updating with game data:
-def updateDatabaseTrie(basePath, matchDataObjects, isGlobal, dynamodb):
+def updateDatabaseTrie(basePath, matchDataObjects, isGlobal, filterID, dynamodb):
 
-    # Compile all of the matchDataObjects into a list of ResultCompilers that correspond to pathIDs
-    pathIDUpdates = {}
-    for matchData in matchDataObjects:
-        idsToUpdate = getPathIDsToUpdate(matchData, basePath)
-
-        for id in idsToUpdate:
-
-            #Add new ids to update
-            if id not in pathIDUpdates:
-                if isGlobal:
-                    pathIDUpdates[id] = GlobalResultCompiler()
-                else:
-                    pathIDUpdates[id] = PlayerResultCompiler()
-            
-            pathIDUpdates[id].handle_battle_result(matchData)
+    pathIDUpdates = getCompilersToUpdate(matchDataObjects, basePath, isGlobal)
 
     def updatePath(pathID, resultCompiler, dynamodb):
         try:
@@ -106,25 +104,28 @@ def updateDatabaseTrie(basePath, matchDataObjects, isGlobal, dynamodb):
                 ":sptotal": {"N": str(resultCompiler.player_star_data.potential_total)}
             }
 
-            if not isGlobal:
+            # if not isGlobal:
 
-                update_expr_parts.append("resultCompiler.player_trophy_change :trophy")
-                expr_attr_values[":trophy"] = {"N": str(resultCompiler.player_trophy_change)}
+            update_expr_parts.append("resultCompiler.player_trophy_change :trophy")
+            expr_attr_values[":trophy"] = {"N": str(resultCompiler.player_trophy_change)}
 
-                expr_attr_names = {}
+            expr_attr_names = {}
 
-                # Add merging for resultCompiler.duration_frequencies.frequencies
-                frequencies_to_add = resultCompiler.duration_frequencies.frequencies
+            # Add merging for resultCompiler.duration_frequencies.frequencies
+            frequencies_to_add = resultCompiler.duration_frequencies.frequencies
 
-                for key, delta in frequencies_to_add.items():
-                    name_key = f"#k{key}"      # for attribute name placeholder
-                    value_key = f":inc{key}"   # for value placeholder
+            for key, delta in frequencies_to_add.items():
 
-                    expr_attr_names[name_key] = key
-                    expr_attr_values[value_key] = {"N": str(delta)}
-                    update_expr_parts.append(f"resultCompiler.duration_frequencies.frequencies.{name_key} {value_key}")
+                sanitizedKey = key.replace("-", "_")
 
-                update_expr = "ADD " + ",\n    ".join(update_expr_parts)
+                name_key = f"#k{sanitizedKey}"      # for attribute name placeholder
+                value_key = f":inc{key}"   # for value placeholder
+
+                expr_attr_names[name_key] = key
+                expr_attr_values[value_key] = {"N": str(delta)}
+                update_expr_parts.append(f"resultCompiler.duration_frequencies.frequencies.{name_key} {value_key}")
+
+            update_expr = "ADD " + ",\n    ".join(update_expr_parts)
 
             # print("UpdateExpression:")
             # print(update_expr)
@@ -133,30 +134,43 @@ def updateDatabaseTrie(basePath, matchDataObjects, isGlobal, dynamodb):
             # print("ExpressionAttributeNames:")
             # print(expr_attr_names)
 
-            # Perform the update
-            dynamodb.update_item(
-                TableName=BRAWL_TRIE_TABLE,
-                Key={
-                    "pathID": {"S": pathID},
-                    "filterID": {"S": "temp"}
-                },
-                ConditionExpression="attribute_exists(pathID)",
-                UpdateExpression=update_expr,
-                ExpressionAttributeValues=expr_attr_values,
-                ExpressionAttributeNames=expr_attr_names if expr_attr_names else None
-            )
+            if len(expr_attr_names) > 0:
+                # Perform the update
+                dynamodb.update_item(
+                    TableName=BRAWL_TRIE_TABLE,
+                    Key={
+                        "pathID": {"S": pathID},
+                        "filterID": {"S": filterID}
+                    },
+                    # ConditionExpression="attribute_exists(pathID)",
+                    UpdateExpression=update_expr,
+                    ExpressionAttributeValues=expr_attr_values,
+                    ExpressionAttributeNames=expr_attr_names
+                )
+            else:
+                # Perform the update
+                dynamodb.update_item(
+                    TableName=BRAWL_TRIE_TABLE,
+                    Key={
+                        "pathID": {"S": pathID},
+                        "filterID": {"S": filterID}
+                    },
+                    # ConditionExpression="attribute_exists(pathID)",
+                    UpdateExpression=update_expr,
+                    ExpressionAttributeValues=expr_attr_values,
+                )
 
             return True
 
         except Exception as e:
-            print("Error during update:", e)
+            # print("Error during update:", e)
             return False
 
     def addPath(pathID, childrenPathIDs, dynamodb):
         # Just add the base object
 
         baseCompiler = PlayerResultCompiler().to_dict()
-        newItem = getTrieNodeItem(baseCompiler, pathID, childrenPathIDs)
+        newItem = getTrieNodeItem(baseCompiler, pathID, filterID, childrenPathIDs)
 
         dynamodb.put_item(
             TableName=BRAWL_TRIE_TABLE,
@@ -178,7 +192,7 @@ def updateDatabaseTrie(basePath, matchDataObjects, isGlobal, dynamodb):
             try:
                 response = dynamodb.update_item(
                     TableName=BRAWL_TRIE_TABLE,
-                    Key={"pathID": {"S": parentPathID}, "filterID": {"S": "temp"}},
+                    Key={"pathID": {"S": parentPathID}, "filterID": {"S": filterID}},
                     UpdateExpression="""
                         SET childrenPathIDs = list_append(if_not_exists(childrenPathIDs, :empty_list), :new_child)
                     """,
@@ -189,7 +203,7 @@ def updateDatabaseTrie(basePath, matchDataObjects, isGlobal, dynamodb):
                     },
                     ReturnValues="UPDATED_NEW"
                 )
-                print("Successfully updated:", response["Attributes"]["childrenPathIDs"])
+                # print("Successfully updated:", response["Attributes"]["childrenPathIDs"])
                 return True
             except Exception as e:
                 return False
@@ -200,46 +214,281 @@ def updateDatabaseTrie(basePath, matchDataObjects, isGlobal, dynamodb):
             # Recursively create parent with this as child
             addPath(parentPath, [pathID], dynamodb)
 
+    print(f"{len(pathIDUpdates)} paths to update")
+
+    input()
+
+    count = 0
+
     for pathID, resultCompiler in pathIDUpdates.items():
-        print(pathID)
-        print()
+        print(pathID, count, count / len(pathIDUpdates))
+        # print()
         if updatePath(pathID, resultCompiler, dynamodb):
-            print("Success")
+            # print("Success")
             pass
         else:
-            print("Failed, adding")
+            # print("Failed, adding")
             addPath(pathID, [], dynamodb)
             newUpdateResult = updatePath(pathID, resultCompiler, dynamodb)
-            print("Update result ", newUpdateResult)
+            # print("Update result ", newUpdateResult)
+        
+        count += 1
     
-def getPathIDsToUpdate(matchData, basePath=""):
+def getPathIDsToUpdate(matchData, basePath, isGlobal):
     result = []
     def addPathID(path):
         result.append(basePath + path)
 
-    #type.brawler.mode.map:
-    addPathID(f"$brawlerModeMap${matchData.type}")
-    addPathID(f"$brawlerModeMap${matchData.type}${matchData.brawler}")
-    addPathID(f"$brawlerModeMap${matchData.type}${matchData.brawler}${matchData.mode}")
-    addPathID(f"$brawlerModeMap${matchData.type}${matchData.brawler}${matchData.mode}${matchData.map}")
-
-    #type.mode.map.brawler:
-    addPathID(f"$modeMapBrawler${matchData.type}")
-    addPathID(f"$modeMapBrawler${matchData.type}${matchData.mode}")
-    addPathID(f"$modeMapBrawler${matchData.type}${matchData.mode}${matchData.map}")
-    addPathID(f"$modeMapBrawler${matchData.type}${matchData.mode}${matchData.map}${matchData.brawler}")
-
     #type.mode.brawler
     # addPathID(f"${type}")
     # addPathID(f"${type}${mode}")
-
     #This IS needed: find out what brawlers you have played soloShowdown with
     addPathID(f"$modeBrawler${matchData.type}${matchData.mode}${matchData.brawler}")
 
+    if not isGlobal:
+        #type.brawler.mode.map:
+        addPathID(f"$brawlerModeMap${matchData.type}")
+        addPathID(f"$brawlerModeMap${matchData.type}${matchData.brawler}")
+        addPathID(f"$brawlerModeMap${matchData.type}${matchData.brawler}${matchData.mode}")
+        addPathID(f"$brawlerModeMap${matchData.type}${matchData.brawler}${matchData.mode}${matchData.map}")
+
+        #type.mode.map.brawler:
+        addPathID(f"$modeMapBrawler${matchData.type}")
+        addPathID(f"$modeMapBrawler${matchData.type}${matchData.mode}")
+        addPathID(f"$modeMapBrawler${matchData.type}${matchData.mode}${matchData.map}")
+        addPathID(f"$modeMapBrawler${matchData.type}${matchData.mode}${matchData.map}${matchData.brawler}")
+    else:
+
+        # Extension of modeBrawler
+        # These are specifically global because they already exist in players' modemapbrawler
+        addPathID(f"$modeBrawler${matchData.type}")
+        addPathID(f"$modeBrawler${matchData.type}${matchData.mode}")
+
+        # Brawler
+        addPathID(f"$brawler${matchData.type}${matchData.brawler}")
+
     return result
 
+def getCompilersToUpdate(matchDataObjects, basePath, isGlobal):
+    # Compile all of the matchDataObjects into a list of ResultCompilers that correspond to pathIDs
+
+    pathIDUpdates = {}
+    for matchData in matchDataObjects:
+        idsToUpdate = getPathIDsToUpdate(matchData, basePath, isGlobal)
+
+        for id in idsToUpdate:
+
+            #Add new ids to update
+            if id not in pathIDUpdates:
+                # if isGlobal:
+                #     pathIDUpdates[id] = GlobalResultCompiler()
+                # else:
+                #     pathIDUpdates[id] = PlayerResultCompiler()
+                pathIDUpdates[id] = PlayerResultCompiler()
+            
+            pathIDUpdates[id].handle_battle_result(matchData)
+    
+    return pathIDUpdates
+
+def getMatchDataObjectsFromGame(game, isGlobal, playerTag = ""):
+
+    def getType(game):
+        return "ranked" if game['battle']['type'] == "soloRanked" else "regular"
+    def isShowdownVictory(game):
+        if not 'rank' in game['battle']:
+            raise KeyError("This isn't a showdown game!")
+        
+        if 'players' in game['battle']:
+            return game['battle']['rank'] <= math.floor(len(game['battle']['players']) / 2)
+        else:
+            return game['battle']['rank'] <= math.floor(len(game['battle']['teams']) / 2)
+    def getTrophyChange(game, playerTag):
+            if 'trophyChange' in game['battle']:
+                return game['battle']['trophyChange']
+            
+            if 'players' in game['battle'] and 'brawlers' in game['battle']['players'][0]:
+                for player in game['battle']['players']:
+                    if player['tag'] == playerTag:
+                        total = 0
+                        for brawler in player['brawlers']:
+                            total += brawler['trophyChange']
+                        return total
+            
+            return 0#change this!!
+    def getWinningTeamIndex(game, playerTag):
+        result = 1 if (game['battle']['result'] == "victory") else 0
+        for player in game['battle']['teams'][0]:
+            if player['tag'] == playerTag:
+                return 1 - result
+        return result
+
+    def getMatchDataFromShowdown(game, playerTag):
+        def getShowdownTeamPlayers(game, playerTag):
+            if 'players' in game['battle']:
+                for player in game['battle']['players']:
+                    if player['tag'] == playerTag:
+                        return [player]
+            elif 'teams' in game['battle']:
+                # Find the team that this player is on
+                team_index = -1
+                for i in range(len(game['battle']['teams'])):
+                    for j in range(len(game['battle']['teams'][i])):
+                        if game['battle']['teams'][i][j]['tag'] == playerTag:
+                            team_index = i
+
+                if team_index == -1:
+                    print("Unable to find team!")
+                    return
+
+                return game['battle']['teams'][team_index]
+            else:
+                print("Showdown has no players or teams!")
+                return []
+
+        # Update rank compilers!?
+        # Update THIS!
+
+        # Collect Variables:
+        is_star_player = game['battle']['rank'] == 1
+        result_type = "wins" if isShowdownVictory(game) else "losses"
+
+        playersOnThisTeam = getShowdownTeamPlayers(game, playerTag)
+
+        result = []
+        for player in playersOnThisTeam:
+            if isGlobal:
+                result.append(MatchData(
+                    game['event']['map'],
+                    getMode(game),
+                    player['brawler']['name'],
+                    result_type,
+                    is_star_player,
+                    True,
+                    None,
+                    0,
+                    getType(game)
+                ))
+            else:
+                #Only include target player
+                if player['tag'] != playerTag:
+                    continue
+
+                result.append(MatchData(
+                    game['event']['map'],
+                    getMode(game),
+                    player['brawler']['name'],
+                    result_type,
+                    is_star_player,
+                    True,
+                    None,
+                    getTrophyChange(game, playerTag),
+                    getType(game)
+                ))
+        
+        return result
+
+    def getMatchDataFromDuels(game, playerTag):
+        result = []
+
+        for player in game['battle']['players']:
+            result_type = (
+                "draws"
+                if game['battle']['result'] == "draw"
+                else ("wins" if playerTag == player['tag'] and game['battle']['result'] == "victory" or playerTag != player['tag'] and game['battle']['result'] == "defeat" else "losses")
+            )
+
+
+            if isGlobal:
+                for brawler in player['brawlers']:
+                    result.append(MatchData(
+                            game['event']['map'],
+                            getMode(game),
+                            brawler['name'],
+                            result_type,
+                            False,
+                            False,
+                            game['battle']['duration'],
+                            0,
+                            getType(game)
+                        )
+                    )
+            else:
+                if player['tag'] != playerTag:
+                    continue
+
+                for brawler in player['brawlers']:
+                    result.append(MatchData(
+                            game['event']['map'],
+                            getMode(game),
+                            brawler['name'],
+                            result_type,
+                            False,
+                            False,
+                            game['battle']['duration'],
+                            getTrophyChange(game, playerTag),
+                            getType(game)
+                        )
+                    )
+            
+        return result
+
+    def getMatchDataFromRegular(game, playerTag):
+
+        result = []
+
+        winningTeamIndex = getWinningTeamIndex(game, playerTag)
+
+        for teamIndex in range(2):
+            for player in game['battle']['teams'][teamIndex]:
+
+                is_star_player = player['tag'] == game['battle']['starPlayer']['tag'] if game['battle']['starPlayer'] else False
+                result_type = (
+                    "draws"
+                    if game['battle']['result'] == "draw"
+                    else ("wins" if winningTeamIndex == teamIndex else "losses")
+                )
+
+                #If this is player statistics, only include the player
+                if not isGlobal and player['tag'] != playerTag:
+                    continue
+
+                result.append(MatchData(
+                        game['event']['map'],
+                        getMode(game),
+                        player['brawler']['name'],
+                        result_type,
+                        is_star_player,
+                        game['battle']['starPlayer'] is not None,
+                        game['battle']['duration'],
+                        getTrophyChange(game, playerTag),
+                        getType(game)
+                    )
+                )
+
+        return result
+
+    if not isGlobal and playerTag == "":
+        print("Player-specific match data provided no player tag!")
+        return False
+
+    if isGlobal:
+        playerTag = game['player_tag']
+
+    if 'rank' in game['battle']:
+        return getMatchDataFromShowdown(game, playerTag)
+    elif getMode(game) == "duels":
+        return getMatchDataFromDuels(game, playerTag)
+    elif 'teams' not in game['battle']:
+        return []
+    elif len(game['battle']['teams']) != 2:
+        return []
+    else:
+        return getMatchDataFromRegular(game, playerTag)
+
+
+
 # Fetching:
-def fetchTrieData(basePath, type, mode, map, brawler, targetAttribute, dynamodb):
+def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute, dynamodb):
     # See TrieStorageNew.md -> ## Fetching
     deserializer = TypeDeserializer()
 
@@ -253,7 +502,7 @@ def fetchTrieData(basePath, type, mode, map, brawler, targetAttribute, dynamodb)
         def fetchChildrenNodes(pathID, dynamodb):
             response = dynamodb.get_item(
                 TableName=BRAWL_TRIE_TABLE,
-                Key={"pathID": {"S": pathID}, "filterID": {"S": "temp"}}
+                Key={"pathID": {"S": pathID}, "filterID": {"S": filterID}}
             )
 
             if 'Item' not in response:
@@ -262,7 +511,7 @@ def fetchTrieData(basePath, type, mode, map, brawler, targetAttribute, dynamodb)
 
             childrenPathIDs = deserializer.deserialize(response['Item']["childrenPathIDs"])
 
-            childrenPathIDKeys = [{"pathID": {"S": childPathID}, "filterID": {"S": "temp"}} for childPathID in childrenPathIDs]
+            childrenPathIDKeys = [{"pathID": {"S": childPathID}, "filterID": {"S": filterID}} for childPathID in childrenPathIDs]
             childrenItems = batch_get_all_items(BRAWL_TRIE_TABLE, childrenPathIDKeys, dynamodb, PROJECTION_EXPRESSION)
 
             deserializedResult = [{k: deserializer.deserialize(v) for k, v in childItem.items()} for childItem in childrenItems]
@@ -338,7 +587,7 @@ def fetchTrieData(basePath, type, mode, map, brawler, targetAttribute, dynamodb)
             fullPath = f"{basePath}${getPathForFetchWithTypeAsTarget(potentialType, mode, map, brawler)}"
             response = dynamodb.get_item(
                 TableName=BRAWL_TRIE_TABLE,
-                Key={"pathID": {"S": fullPath}, "filterID": {"S": "temp"}},
+                Key={"pathID": {"S": fullPath}, "filterID": {"S": filterID}},
                 ProjectionExpression=PROJECTION_EXPRESSION
             )
 

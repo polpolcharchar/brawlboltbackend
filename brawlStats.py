@@ -28,7 +28,7 @@ class BrawlStats(Serializable):
             self.typeModeMapBrawler.populateNextStructure("regular", playerDataJSON["regular_mode_map_brawler"] if playerDataJSON else None)
             self.typeModeMapBrawler.populateNextStructure("ranked", playerDataJSON["ranked_mode_map_brawler"] if playerDataJSON else None)
 
-        if playerDataJSON is None:
+        if playerDataJSON is None or isGlobal:
             self.showdown_rank_compilers = {}
         else:
             self.showdown_rank_compilers = {key: FrequencyCompiler(value) for key, value in playerDataJSON['showdown_rank_compilers'].items()}

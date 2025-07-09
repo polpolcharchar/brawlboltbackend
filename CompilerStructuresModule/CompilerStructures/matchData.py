@@ -1,4 +1,7 @@
-class MatchData():
+from CompilerStructuresModule.CompilerStructures.serializable import Serializable
+
+
+class MatchData(Serializable):
     def __init__(self, map, mode, brawler, result_type, is_star_player, star_player_exists, duration, trophy_change, type):
         if map == None:
             self.map = "unknown"

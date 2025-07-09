@@ -2,6 +2,7 @@
 import json
 
 from DatabaseUtility.itemUtility import deserializeDynamoDbItem, fullyJSONifyData
+from brawlStats import BrawlStats
 
 globalDataTable = 'BrawlStarsGlobalData2'
 
@@ -53,3 +54,29 @@ def getSpecificGlobalStatOverTime(statTypeString, dynamodb, limit=20):
             else fullyJSONifyData(deserializeDynamoDbItem(item))
             for item in response['Items']
             ]
+
+def getGlobalStatsObject(datetime, dynamodb):
+    statTypeToBrawlStatNames = {
+        "regularModeBrawler": "regular_mode_brawler",
+        "regularBrawler": "regular_brawler",
+        "rankedModeBrawler": "ranked_mode_brawler",
+        "rankedBrawler": "ranked_brawler"
+    }
+
+    globalDataJSON = {}
+
+    for statType, brawlName in statTypeToBrawlStatNames.items():
+
+        response = dynamodb.get_item(
+            TableName=globalDataTable,
+            Key={"statType": {"S": statType}, "datetime": {"S": datetime}}
+        )
+
+        if 'Item' not in response:
+            print("Missing item!", statType)
+            return False
+        
+        globalDataJSON[brawlName] = json.loads(response['Item']['stats']['S'])
+    
+    return BrawlStats(True, globalDataJSON)
+
