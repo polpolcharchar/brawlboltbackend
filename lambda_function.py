@@ -73,7 +73,7 @@ def lambda_handler(event, context):
         requestedType = eventBody.get('requestType')
         requestedMap = eventBody.get('requestMap')
         requestedMode = eventBody.get('requestMode')
-        requestedBrawler = eventBody.get('brawler')
+        requestedBrawler = eventBody.get('requestBrawler')
 
         targetAttribute = eventBody['targetAttribute']
 
