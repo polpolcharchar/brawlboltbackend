@@ -493,7 +493,7 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
 
     PROJECTION_EXPRESSION = "pathID, resultCompiler"
 
-    if type is not None:
+    if targetAttribute != "type":
 
         # For these, get the object with the corresponding id
         # For the first outcome, this would be modeMapBrawler$type$mode$map
@@ -577,7 +577,8 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
                 else:
                     return f"modeMapBrawler${type}${mode}"
             else:
-                raise Exception("Brawler and mode cannot both be None!")
+                return f"modeBrawler" # Any of the base maps could go here, because they all begin with type
+                # Need to implement a way to actually assign the right stats here when transitioning from old format
 
         result = []
 
