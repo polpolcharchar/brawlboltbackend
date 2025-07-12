@@ -491,14 +491,18 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
     # See TrieStorageNew.md -> ## Fetching
     deserializer = TypeDeserializer()
 
-    PROJECTION_EXPRESSION = "pathID, resultCompiler"
+    PROJECTION_EXPRESSION = "pathID, resultCompiler, childrenPathIDs"
 
     if targetAttribute != "type":
+
+        if type is None:
+            raise Exception("Type must be provided if targetAttribute is not 'type'!")
 
         # For these, get the object with the corresponding id
         # For the first outcome, this would be modeMapBrawler$type$mode$map
         # Get the children of this object and return them
-        def fetchChildrenNodes(pathID, dynamodb):
+
+        def fetchChildrenPaths(pathID, dynamodb):
             response = dynamodb.get_item(
                 TableName=BRAWL_TRIE_TABLE,
                 Key={"pathID": {"S": pathID}, "filterID": {"S": filterID}}
@@ -506,9 +510,13 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
 
             if 'Item' not in response:
                 return []
-            
 
             childrenPathIDs = deserializer.deserialize(response['Item']["childrenPathIDs"])
+
+            return childrenPathIDs
+
+        def fetchChildrenNodes(pathID, dynamodb):
+            childrenPathIDs = fetchChildrenPaths(pathID, dynamodb)
 
             childrenPathIDKeys = [{"pathID": {"S": childPathID}, "filterID": {"S": filterID}} for childPathID in childrenPathIDs]
             childrenItems = batch_get_all_items(BRAWL_TRIE_TABLE, childrenPathIDKeys, dynamodb, PROJECTION_EXPRESSION)
@@ -545,7 +553,19 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
                 raise Exception("Invalid targetAttribute!")
 
         fullPath = f"{basePath}${getPathForFetchWithTypeAsParameter(targetAttribute, type, mode, map, brawler)}"
-        return fetchChildrenNodes(fullPath, dynamodb)
+
+        print(fullPath)
+
+        potentialMaps = []
+        if mode is not None:
+            mapParentPath = f"{basePath}${getPathForFetchWithTypeAsParameter('map', type, mode, map, brawler)}"
+            mapPaths = fetchChildrenPaths(mapParentPath, dynamodb)
+            potentialMaps = [mp.split('$')[-1] for mp in mapPaths]
+
+        return {
+            "trieData": fetchChildrenNodes(fullPath, dynamodb),
+            "potentialMaps": potentialMaps
+        }
 
     else:
         # targetAttribute == "type" and type is None
@@ -577,10 +597,11 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
                 else:
                     return f"modeMapBrawler${type}${mode}"
             else:
-                return f"modeBrawler" # Any of the base maps could go here, because they all begin with type
+                return f"modeBrawler${type}" # Any of the base maps could go here, because they all begin with type
                 # Need to implement a way to actually assign the right stats here when transitioning from old format
 
         result = []
+        potentialMapsSet = set()
 
         for potentialType in getPotentialTypes():
 
@@ -592,6 +613,18 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
             )
 
             if 'Item' in response:
-                result.append({k: deserializer.deserialize(v) for k, v in response['Item'].items()})
+
+                deserializedItem = {k: deserializer.deserialize(v) for k, v in response['Item'].items()}
+
+                result.append(deserializedItem)
+
+                # If there is mode but no map, include children maps. they will be children of the fetchedItem
+                if mode is not None and map is None:
+                    childrenPathIDs = deserializedItem["childrenPathIDs"]
+                    for childPathID in childrenPathIDs:
+                        potentialMapsSet.add(childPathID.split('$')[-1])
         
-        return result
+        return {
+            "trieData": result,
+            "potentialMaps": list(potentialMapsSet)
+        }

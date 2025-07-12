@@ -80,16 +80,23 @@ def lambda_handler(event, context):
         basePath = eventBody['playerTag']
         filterID = eventBody['filterID']
 
-        fetchResult = fetchTrieData(
-            basePath=basePath,
-            filterID=filterID,
-            type=requestedType,
-            mode=requestedMode,
-            map=requestedMap,
-            brawler=requestedBrawler,
-            targetAttribute=targetAttribute,
-            dynamodb=dynamodb
-        )
+        try:
+            fetchResult = fetchTrieData(
+                basePath=basePath,
+                filterID=filterID,
+                type=requestedType,
+                mode=requestedMode,
+                map=requestedMap,
+                brawler=requestedBrawler,
+                targetAttribute=targetAttribute,
+                dynamodb=dynamodb
+            )
+        except Exception as e:
+            return {
+                'statusCode': 502,
+                'body': json.dumps({'message': f'Error fetching trie data: {str(e)}'}),
+                'headers': CORS_HEADERS,
+            }
 
         return {
             'statusCode': 200,
