@@ -4,7 +4,7 @@ from datetime import datetime
 from DatabaseUtility.globalUtility import getDeserializedGlobalStats, getSpecificGlobalStatOverTime
 from DatabaseUtility.itemUtility import decimal_serializer
 from DatabaseUtility.playerUtility import beginTrackingPlayer, compileUncachedStats, getPlayerCompiledStatsJSON, getPlayerInfo, getPlayerRegularModeMapBrawlerJSON, updateStatsLastAccessed
-from DatabaseUtility.trieUtility import fetchTrieData
+from DatabaseUtility.trieUtility import BRAWL_TRIE_TABLE, fetchTrieData, fetchRecentTrieData
 
 CORS_HEADERS = {
   'Content-Type': 'application/json',
@@ -61,13 +61,6 @@ def lambda_handler(event, context):
             'headers': CORS_HEADERS,
         }
     
-    elif 'o' in eventBody['playerTag']:
-        return {
-            'statusCode': 502,
-            'body': json.dumps({'message': 'Invalid playerTag: cannot contain the letter o'}),
-            'headers': CORS_HEADERS,
-        }
-
     elif eventBody['type'] == 'getTrieData':
 
         requestedType = eventBody.get('requestType')
@@ -80,6 +73,8 @@ def lambda_handler(event, context):
         basePath = eventBody['playerTag']
         filterID = eventBody['filterID']
 
+        isGlobal = eventBody['isGlobal']
+
         try:
             fetchResult = fetchTrieData(
                 basePath=basePath,
@@ -89,7 +84,8 @@ def lambda_handler(event, context):
                 map=requestedMap,
                 brawler=requestedBrawler,
                 targetAttribute=targetAttribute,
-                dynamodb=dynamodb
+                dynamodb=dynamodb,
+                isGlobal=isGlobal
             )
         except Exception as e:
             return {
@@ -104,6 +100,52 @@ def lambda_handler(event, context):
             'headers': CORS_HEADERS
         }
 
+    elif eventBody['type'] == 'getRecentTrieData':
+        requestedType = eventBody.get('requestType')
+        requestedMap = eventBody.get('requestMap')
+        requestedMode = eventBody.get('requestMode')
+        requestedBrawler = eventBody.get('requestBrawler')
+
+        targetAttribute = eventBody['targetAttribute']
+
+        basePath = eventBody['playerTag']
+
+        isGlobal = eventBody['isGlobal']
+
+        numItems = min(eventBody.get('numItems', 1), 20)
+
+        fetchResult = fetchRecentTrieData(
+            basePath=basePath,
+            numItems=numItems,
+            isGlobal=isGlobal,
+            type=requestedType,
+            mode=requestedMode,
+            map=requestedMap,
+            brawler=requestedBrawler,
+            targetAttribute=targetAttribute,
+            dynamodb=dynamodb
+        )
+
+        if fetchResult is None:
+            return {
+                'statusCode': 502,
+                'body': json.dumps({'message': 'Error fetching trie data over time'}),
+                'headers': CORS_HEADERS,
+            }
+        
+        return {
+            'statusCode': 200,
+            'body': json.dumps(fetchResult, default=lambda x: decimal_serializer(x)),
+            'headers': CORS_HEADERS
+        }
+        
+
+    elif 'o' in eventBody['playerTag']:
+            return {
+                'statusCode': 502,
+                'body': json.dumps({'message': 'Invalid playerTag: cannot contain the letter o'}),
+                'headers': CORS_HEADERS,
+            }
 
     elif eventBody['type'] == 'getBaseRegularModeMapBrawler':
         #Only include overall data from 1 level deeper in the stat map:

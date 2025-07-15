@@ -1,4 +1,5 @@
 import math
+import time
 
 from CompilerStructuresModule.CompilerStructures.globalResultCompiler import GlobalResultCompiler
 from CompilerStructuresModule.CompilerStructures.matchData import MatchData
@@ -73,7 +74,7 @@ def getTrieNodeItem(resultCompilerJSON, pathID, filterID, childrenPathIDs):
     return item
 
 # Updating with game data:
-def updateDatabaseTrie(basePath, matchDataObjects, isGlobal, filterID, dynamodb):
+def updateDatabaseTrie(basePath, matchDataObjects, filterID, dynamodb, isGlobal, skipToAddImmediately=False):
 
     pathIDUpdates = getCompilersToUpdate(matchDataObjects, basePath, isGlobal)
 
@@ -216,14 +217,14 @@ def updateDatabaseTrie(basePath, matchDataObjects, isGlobal, filterID, dynamodb)
 
     print(f"{len(pathIDUpdates)} paths to update")
 
-    input()
+    startTime = time.time()
+    print("Starting update...")
 
     count = 0
 
     for pathID, resultCompiler in pathIDUpdates.items():
-        print(pathID, count, count / len(pathIDUpdates))
-        # print()
-        if updatePath(pathID, resultCompiler, dynamodb):
+        print(f"Updating path {count + 1}/{len(pathIDUpdates)}: {pathID}")
+        if updatePath(pathID, resultCompiler, dynamodb) and not skipToAddImmediately:
             # print("Success")
             pass
         else:
@@ -234,10 +235,16 @@ def updateDatabaseTrie(basePath, matchDataObjects, isGlobal, filterID, dynamodb)
         
         count += 1
     
+    endTime = time.time()
+    print(f"Update completed in {endTime - startTime:.2f} seconds.")
+    print(f"Updated {count} paths at a rate of {count / (endTime - startTime):.2f} paths/second.")
+    
 def getPathIDsToUpdate(matchData, basePath, isGlobal):
     result = []
     def addPathID(path):
         result.append(basePath + path)
+
+    addPathID("")
 
     #type.mode.brawler
     # addPathID(f"${type}")
@@ -290,7 +297,7 @@ def getCompilersToUpdate(matchDataObjects, basePath, isGlobal):
     
     return pathIDUpdates
 
-def getMatchDataObjectsFromGame(game, isGlobal, playerTag = ""):
+def getMatchDataObjectsFromGame(game, playerTag, includeAllPlayers):
 
     def getType(game):
         return "ranked" if game['battle']['type'] == "soloRanked" else "regular"
@@ -338,15 +345,12 @@ def getMatchDataObjectsFromGame(game, isGlobal, playerTag = ""):
 
                 if team_index == -1:
                     print("Unable to find team!")
-                    return
+                    return []
 
                 return game['battle']['teams'][team_index]
             else:
                 print("Showdown has no players or teams!")
                 return []
-
-        # Update rank compilers!?
-        # Update THIS!
 
         # Collect Variables:
         is_star_player = game['battle']['rank'] == 1
@@ -356,7 +360,7 @@ def getMatchDataObjectsFromGame(game, isGlobal, playerTag = ""):
 
         result = []
         for player in playersOnThisTeam:
-            if isGlobal:
+            if includeAllPlayers or player['tag'] == playerTag:
                 result.append(MatchData(
                     game['event']['map'],
                     getMode(game),
@@ -365,23 +369,7 @@ def getMatchDataObjectsFromGame(game, isGlobal, playerTag = ""):
                     is_star_player,
                     True,
                     None,
-                    0,
-                    getType(game)
-                ))
-            else:
-                #Only include target player
-                if player['tag'] != playerTag:
-                    continue
-
-                result.append(MatchData(
-                    game['event']['map'],
-                    getMode(game),
-                    player['brawler']['name'],
-                    result_type,
-                    is_star_player,
-                    True,
-                    None,
-                    getTrophyChange(game, playerTag),
+                    getTrophyChange(game, player['tag']),
                     getType(game)
                 ))
         
@@ -397,8 +385,7 @@ def getMatchDataObjectsFromGame(game, isGlobal, playerTag = ""):
                 else ("wins" if playerTag == player['tag'] and game['battle']['result'] == "victory" or playerTag != player['tag'] and game['battle']['result'] == "defeat" else "losses")
             )
 
-
-            if isGlobal:
+            if includeAllPlayers or player['tag'] == playerTag:
                 for brawler in player['brawlers']:
                     result.append(MatchData(
                             game['event']['map'],
@@ -408,24 +395,7 @@ def getMatchDataObjectsFromGame(game, isGlobal, playerTag = ""):
                             False,
                             False,
                             game['battle']['duration'],
-                            0,
-                            getType(game)
-                        )
-                    )
-            else:
-                if player['tag'] != playerTag:
-                    continue
-
-                for brawler in player['brawlers']:
-                    result.append(MatchData(
-                            game['event']['map'],
-                            getMode(game),
-                            brawler['name'],
-                            result_type,
-                            False,
-                            False,
-                            game['battle']['duration'],
-                            getTrophyChange(game, playerTag),
+                            getTrophyChange(game, player['tag']),
                             getType(game)
                         )
                     )
@@ -448,31 +418,21 @@ def getMatchDataObjectsFromGame(game, isGlobal, playerTag = ""):
                     else ("wins" if winningTeamIndex == teamIndex else "losses")
                 )
 
-                #If this is player statistics, only include the player
-                if not isGlobal and player['tag'] != playerTag:
-                    continue
-
-                result.append(MatchData(
-                        game['event']['map'],
-                        getMode(game),
-                        player['brawler']['name'],
-                        result_type,
-                        is_star_player,
-                        game['battle']['starPlayer'] is not None,
-                        game['battle']['duration'],
-                        getTrophyChange(game, playerTag),
-                        getType(game)
+                if includeAllPlayers or player['tag'] == playerTag:
+                    result.append(MatchData(
+                            game['event']['map'],
+                            getMode(game),
+                            player['brawler']['name'],
+                            result_type,
+                            is_star_player,
+                            game['battle']['starPlayer'] is not None,
+                            game['battle']['duration'],
+                            getTrophyChange(game, player['tag']),
+                            getType(game)
+                        )
                     )
-                )
 
         return result
-
-    if not isGlobal and playerTag == "":
-        print("Player-specific match data provided no player tag!")
-        return False
-
-    if isGlobal:
-        playerTag = game['player_tag']
 
     if 'rank' in game['battle']:
         return getMatchDataFromShowdown(game, playerTag)
@@ -487,7 +447,7 @@ def getMatchDataObjectsFromGame(game, isGlobal, playerTag = ""):
 
 
 # Fetching:
-def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute, dynamodb):
+def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute, isGlobal, dynamodb):
     # See TrieStorageNew.md -> ## Fetching
     deserializer = TypeDeserializer()
 
@@ -524,7 +484,7 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
             deserializedResult = [{k: deserializer.deserialize(v) for k, v in childItem.items()} for childItem in childrenItems]
             return deserializedResult
 
-        def getPathForFetchWithTypeAsParameter(targetAttribute, type, mode, map, brawler):
+        def getPathForFetchWithTypeAsParameter(targetAttribute, type, mode, map, brawler, isGlobal):
             if targetAttribute == "brawler":
                 if map is not None:
                     #typeModeMapBrawler type + mode + map -> brawlers
@@ -534,14 +494,23 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
                     return f"modeBrawler${type}${mode}"
                 else:
                     #typeBrawlerModeMap type -> brawlers
-                    return f"brawlerModeMap${type}"
+                    if isGlobal:
+                        return f"brawler${type}"
+                    else:
+                        return f"brawlerModeMap${type}"
             elif targetAttribute == "mode":
                 if brawler is not None:
                     #typeBrawlerModeMap type + brawler -> modes
-                    return f"brawlerModeMap${type}${brawler}"
+                    if isGlobal:
+                        return f"brawler${type}${brawler}"
+                    else:
+                        return f"brawlerModeMap${type}${brawler}"
                 else:
                     #typeModeMapBrawler type -> modes
-                    return f"modeMapBrawler${type}"
+                    if isGlobal:
+                        return f"modeBrawler${type}"
+                    else:
+                        return f"modeMapBrawler${type}"
             elif targetAttribute == "map":
                 if brawler is not None:
                     #typeBrawlerModeMap type + brawler + mode -> maps
@@ -552,13 +521,11 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
             else:
                 raise Exception("Invalid targetAttribute!")
 
-        fullPath = f"{basePath}${getPathForFetchWithTypeAsParameter(targetAttribute, type, mode, map, brawler)}"
-
-        print(fullPath)
+        fullPath = f"{basePath}${getPathForFetchWithTypeAsParameter(targetAttribute, type, mode, map, brawler, isGlobal)}"
 
         potentialMaps = []
-        if mode is not None:
-            mapParentPath = f"{basePath}${getPathForFetchWithTypeAsParameter('map', type, mode, map, brawler)}"
+        if not isGlobal and mode is not None:
+            mapParentPath = f"{basePath}${getPathForFetchWithTypeAsParameter('map', type, mode, map, brawler, isGlobal)}"
             mapPaths = fetchChildrenPaths(mapParentPath, dynamodb)
             potentialMaps = [mp.split('$')[-1] for mp in mapPaths]
 
@@ -583,19 +550,28 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
         def getPotentialTypes():
             return ["regular", "ranked"]
 
-        def getPathForFetchWithTypeAsTarget(type, mode, map, brawler):
+        def getPathForFetchWithTypeAsTarget(type, mode, map, brawler, isGlobal):
             if brawler is not None:
                 if map is not None:
                     return f"brawlerModeMap${type}${brawler}${mode}${map}"
                 elif mode is not None:
-                    return f"brawlerModeMap${type}${brawler}${mode}"
+                    if isGlobal:
+                        return f"modeBrawler${type}${mode}${brawler}"
+                    else:
+                        return f"brawlerModeMap${type}${brawler}${mode}"
                 else:
-                    return f"brawlerModeMap${type}${brawler}"
+                    if isGlobal:
+                        return f"brawler${type}${brawler}"
+                    else:
+                        return f"brawlerModeMap${type}${brawler}"
             elif mode is not None:
                 if map is not None:
                     return f"modeMapBrawler${type}${mode}${map}"
                 else:
-                    return f"modeMapBrawler${type}${mode}"
+                    if isGlobal:
+                        return f"modeBrawler${type}${mode}"
+                    else:
+                        return f"modeMapBrawler${type}${mode}"
             else:
                 return f"modeBrawler${type}" # Any of the base maps could go here, because they all begin with type
                 # Need to implement a way to actually assign the right stats here when transitioning from old format
@@ -605,7 +581,7 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
 
         for potentialType in getPotentialTypes():
 
-            fullPath = f"{basePath}${getPathForFetchWithTypeAsTarget(potentialType, mode, map, brawler)}"
+            fullPath = f"{basePath}${getPathForFetchWithTypeAsTarget(potentialType, mode, map, brawler, isGlobal)}"
             response = dynamodb.get_item(
                 TableName=BRAWL_TRIE_TABLE,
                 Key={"pathID": {"S": fullPath}, "filterID": {"S": filterID}},
@@ -628,3 +604,40 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
             "trieData": result,
             "potentialMaps": list(potentialMapsSet)
         }
+
+def fetchRecentTrieData(basePath, numItems, isGlobal, type, mode, map, brawler, targetAttribute, dynamodb):
+
+    filterIDs = []
+
+    try:
+        response = dynamodb.query(
+            TableName=BRAWL_TRIE_TABLE,
+            KeyConditionExpression="pathID = :pathID",
+            ExpressionAttributeValues={
+                ":pathID": {"S": basePath}
+            },
+            ScanIndexForward=False,         # descending order by filterID
+            Limit=numItems,
+            # ProjectionExpression="pathID, filterID, resultCompiler"
+        )
+
+        if 'Items' not in response or len(response['Items']) == 0:
+            return []
+
+        for item in response['Items']:
+            filterID = item['filterID']['S']
+            filterIDs.append(filterID)
+
+    except Exception as e:
+        print(f"Error fetching trie data: {e}")
+        return []
+
+    fetchResults = []
+
+    for filterID in filterIDs:
+        fetchResult = fetchTrieData(
+            basePath, filterID, type, mode, map, brawler, targetAttribute, isGlobal, dynamodb
+        )
+        fetchResults.append(fetchResult)
+    
+    return fetchResults
