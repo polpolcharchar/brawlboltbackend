@@ -1,8 +1,8 @@
 from decimal import Decimal
 from boto3.dynamodb.types import TypeDeserializer
 
-from CompilerStructuresModule.CompilerStructures.frequencyCompiler import FrequencyCompiler
-from CompilerStructuresModule.CompilerStructures.gameAttributeTrie import GameAttributeTrie
+# from CompilerStructuresModule.CompilerStructures.frequencyCompiler import FrequencyCompiler
+# from CompilerStructuresModule.CompilerStructures.gameAttributeTrie import GameAttributeTrie
 
 deserializer = TypeDeserializer()
 

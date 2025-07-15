@@ -1,38 +1,35 @@
 import math
 import time
 
-from CompilerStructuresModule.CompilerStructures.globalResultCompiler import GlobalResultCompiler
 from CompilerStructuresModule.CompilerStructures.matchData import MatchData
 from CompilerStructuresModule.CompilerStructures.playerResultCompiler import PlayerResultCompiler
-from DatabaseUtility.globalUtility import getGlobalStatsObject
 from DatabaseUtility.itemUtility import batch_get_all_items, batchWriteToDynamoDB, prepareItem
 from DatabaseUtility.modeToMapOverrideUtility import getMode
-from DatabaseUtility.playerUtility import getPlayerStatsObject
 
 from boto3.dynamodb.types import TypeDeserializer
 
 BRAWL_TRIE_TABLE = "BrawlTrieStorage"
 
 # Saving:
-def saveOldPlayerStatsObjectToTrieDatabase(playerTag, filterID, dynamodb):
-    brawlStats = getPlayerStatsObject(playerTag, dynamodb)
-    tries = {
-        "$modeBrawler": brawlStats.typeModeBrawler, 
-        "$modeMapBrawler": brawlStats.typeModeMapBrawler, 
-        "$brawlerModeMap": brawlStats.typeBrawlerModeMap
-    }
-    for key, value in tries.items():
-        jsonified = value.to_dict()
-        saveTrie(jsonified, playerTag + key, filterID, dynamodb)
-def saveOldGlobalStatsObjectToTrieDatabase(datetime, dynamodb):
-    globalStats = getGlobalStatsObject(datetime, dynamodb)
-    tries = {
-        "$modeBrawler": globalStats.typeModeBrawler, 
-        "$brawler": globalStats.typeBrawler, 
-    }
-    for key, value in tries.items():
-        jsonified = value.to_dict()
-        saveTrie(jsonified, "global" + key, datetime, dynamodb)
+# def saveOldPlayerStatsObjectToTrieDatabase(playerTag, filterID, dynamodb):
+#     brawlStats = getPlayerStatsObject(playerTag, dynamodb)
+#     tries = {
+#         "$modeBrawler": brawlStats.typeModeBrawler, 
+#         "$modeMapBrawler": brawlStats.typeModeMapBrawler, 
+#         "$brawlerModeMap": brawlStats.typeBrawlerModeMap
+#     }
+#     for key, value in tries.items():
+#         jsonified = value.to_dict()
+#         saveTrie(jsonified, playerTag + key, filterID, dynamodb)
+# def saveOldGlobalStatsObjectToTrieDatabase(datetime, dynamodb):
+#     globalStats = getGlobalStatsObject(datetime, dynamodb)
+#     tries = {
+#         "$modeBrawler": globalStats.typeModeBrawler, 
+#         "$brawler": globalStats.typeBrawler, 
+#     }
+#     for key, value in tries.items():
+#         jsonified = value.to_dict()
+#         saveTrie(jsonified, "global" + key, datetime, dynamodb)
 
 def saveTrie(gameAttributeTrieJSON, basePath, filterID, dynamodb):
     allItems = getAllTrieNodeItems(gameAttributeTrieJSON, basePath, filterID, dynamodb)
@@ -237,7 +234,9 @@ def updateDatabaseTrie(basePath, matchDataObjects, filterID, dynamodb, isGlobal,
     
     endTime = time.time()
     print(f"Update completed in {endTime - startTime:.2f} seconds.")
-    print(f"Updated {count} paths at a rate of {count / (endTime - startTime):.2f} paths/second.")
+    if endTime - startTime > 0:
+        # Print the rate of paths updated per second
+        print(f"Updated {count} paths at a rate of {count / (endTime - startTime):.2f} paths/second.")
     
 def getPathIDsToUpdate(matchData, basePath, isGlobal):
     result = []
@@ -403,7 +402,6 @@ def getMatchDataObjectsFromGame(game, playerTag, includeAllPlayers):
         return result
 
     def getMatchDataFromRegular(game, playerTag):
-
         result = []
 
         winningTeamIndex = getWinningTeamIndex(game, playerTag)
@@ -453,7 +451,7 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
 
     PROJECTION_EXPRESSION = "pathID, resultCompiler, childrenPathIDs"
 
-    if targetAttribute != "type":
+    if targetAttribute != "type" and targetAttribute is not None:
 
         if type is None:
             raise Exception("Type must be provided if targetAttribute is not 'type'!")
@@ -576,6 +574,28 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
                 return f"modeBrawler${type}" # Any of the base maps could go here, because they all begin with type
                 # Need to implement a way to actually assign the right stats here when transitioning from old format
 
+        if targetAttribute is None:
+            path = f"{basePath}${getPathForFetchWithTypeAsTarget(type, mode, map, brawler, isGlobal)}"
+
+            response = dynamodb.get_item(
+                TableName=BRAWL_TRIE_TABLE,
+                Key={"pathID": {"S": path}, "filterID": {"S": filterID}},
+                ProjectionExpression=PROJECTION_EXPRESSION
+            )
+
+            if 'Item' not in response:
+                return {
+                    "trieData": [],
+                    "potentialMaps": []
+                }
+            
+            deserializedItem = {k: deserializer.deserialize(v) for k, v in response['Item'].items()}
+
+            return {
+                "trieData": [deserializedItem],
+                "potentialMaps": []
+            }
+
         result = []
         potentialMapsSet = set()
 
@@ -606,7 +626,6 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
         }
 
 def fetchRecentTrieData(basePath, numItems, isGlobal, type, mode, map, brawler, targetAttribute, dynamodb):
-
     filterIDs = []
 
     try:
@@ -616,9 +635,8 @@ def fetchRecentTrieData(basePath, numItems, isGlobal, type, mode, map, brawler, 
             ExpressionAttributeValues={
                 ":pathID": {"S": basePath}
             },
-            ScanIndexForward=False,         # descending order by filterID
+            ScanIndexForward=False,
             Limit=numItems,
-            # ProjectionExpression="pathID, filterID, resultCompiler"
         )
 
         if 'Items' not in response or len(response['Items']) == 0:

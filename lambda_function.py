@@ -1,9 +1,8 @@
 import json
 import boto3
 from datetime import datetime
-from DatabaseUtility.globalUtility import getDeserializedGlobalStats, getSpecificGlobalStatOverTime
 from DatabaseUtility.itemUtility import decimal_serializer
-from DatabaseUtility.playerUtility import beginTrackingPlayer, compileUncachedStats, getPlayerCompiledStatsJSON, getPlayerInfo, getPlayerRegularModeMapBrawlerJSON, updateStatsLastAccessed
+from DatabaseUtility.playerUtility import beginTrackingPlayer, compileUncachedStats, getPlayerInfo, updateStatsLastAccessed
 from DatabaseUtility.trieUtility import BRAWL_TRIE_TABLE, fetchTrieData, fetchRecentTrieData
 
 CORS_HEADERS = {
@@ -21,40 +20,7 @@ def lambda_handler(event, context):
 
     eventBody = json.loads(event['body'])
 
-    if eventBody['type'] == 'getGlobalDataOverTime':
-
-        g = getSpecificGlobalStatOverTime(eventBody['statType'], dynamodb)
-
-        if g is None:
-            return {
-                'statusCode': 502,
-                'body': json.dumps({'message': 'Error Loading Global Stats'}),
-                'headers': CORS_HEADERS,
-            }
-
-        return {
-            'statusCode': 200,
-            'body': json.dumps(g),
-            'headers': CORS_HEADERS,
-        }
-
-    elif eventBody['type'] == 'getGlobalStats':
-        g = getDeserializedGlobalStats(dynamodb)
-
-        if g is None:
-            return {
-                'statusCode': 502,
-                'body': json.dumps({'message': 'Error Loading Global Stats'}),
-                'headers': CORS_HEADERS,
-            }
-
-        return {
-            'statusCode': 200,
-            'body': json.dumps(g),
-            'headers': CORS_HEADERS,
-        }
-
-    elif eventBody['playerTag'] == "":
+    if eventBody['playerTag'] == "":
         return {
             'statusCode': 502,
             'body': json.dumps({'message': 'Invalid playerTag'}),
@@ -106,7 +72,7 @@ def lambda_handler(event, context):
         requestedMode = eventBody.get('requestMode')
         requestedBrawler = eventBody.get('requestBrawler')
 
-        targetAttribute = eventBody['targetAttribute']
+        targetAttribute = eventBody.get('targetAttribute')
 
         basePath = eventBody['playerTag']
 
@@ -139,29 +105,7 @@ def lambda_handler(event, context):
             'headers': CORS_HEADERS
         }
         
-
-    elif 'o' in eventBody['playerTag']:
-            return {
-                'statusCode': 502,
-                'body': json.dumps({'message': 'Invalid playerTag: cannot contain the letter o'}),
-                'headers': CORS_HEADERS,
-            }
-
-    elif eventBody['type'] == 'getBaseRegularModeMapBrawler':
-        #Only include overall data from 1 level deeper in the stat map:
-        resultBody = {
-            "regularModeMapBrawler": {
-                "stat_map": {key: {"overall": value["overall"]} for key, value in getPlayerRegularModeMapBrawlerJSON(eventBody["playerTag"], dynamodb)["stat_map"].items()}
-            }
-        }
-
-        return {
-            'statusCode': 200,
-            'body': json.dumps(resultBody),
-            'headers': CORS_HEADERS
-        }
-
-    else:
+    elif eventBody['type'] == 'getPlayerInfo':
         #Standard request 1
         response = getPlayerInfo(eventBody['playerTag'], dynamodb)
 
@@ -194,13 +138,16 @@ def lambda_handler(event, context):
 
         resultBody = {
             "playerInfo": {"name": response["Items"][0]["username"]["S"]},
-
-            #Standard request 3
-            "playerStats": getPlayerCompiledStatsJSON(eventBody['playerTag'], dynamodb)
         }
 
         return {
             'statusCode': 200,
             'body': json.dumps(resultBody),
             'headers': CORS_HEADERS
+        }
+    else:
+        return {
+            'statusCode': 400,
+            'body': json.dumps({'message': 'Invalid request type'}),
+            'headers': CORS_HEADERS,
         }
