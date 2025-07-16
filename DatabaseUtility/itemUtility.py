@@ -1,6 +1,9 @@
 from decimal import Decimal
 from boto3.dynamodb.types import TypeDeserializer
 
+from CompilerStructuresModule.CompilerStructures.frequencyCompiler import FrequencyCompiler
+from CompilerStructuresModule.CompilerStructures.gameAttributeTrie import GameAttributeTrie
+
 deserializer = TypeDeserializer()
 
 def prepareItem(game):
@@ -25,7 +28,7 @@ def convertToDynamodbFormat(value):
         return {"NULL": True}
     elif isinstance(value, (set, frozenset)):
         if not value:
-            raise ValueError("DynamoDB does not support empty sets.")
+            return None #Skip empty
         
         elem_types = {type(v) for v in value}
 

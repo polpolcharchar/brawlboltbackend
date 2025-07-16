@@ -78,7 +78,7 @@ def lambda_handler(event, context):
 
         isGlobal = eventBody['isGlobal']
 
-        numItems = min(eventBody.get('numItems', 1), 20)
+        numItems = min(int(eventBody.get('numItems', 1)), 20)
 
         fetchResult = fetchRecentTrieData(
             basePath=basePath,
