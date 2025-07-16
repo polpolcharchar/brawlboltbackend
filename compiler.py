@@ -12,7 +12,6 @@ if __name__ == "__main__":
     print("Beginning Compilation at " + str(datetime.now()))
 
     playerTagSet = getAllPlayerTagsSet(dynamodb)
-    playerTagSet = ["9CUCYLQP"]
 
     for player in playerTagSet:
         compileUncachedStats(player, dynamodb)

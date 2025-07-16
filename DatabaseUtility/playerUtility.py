@@ -140,6 +140,7 @@ def compileUncachedStats(playerTag, dynamodb):
     print(str(len(games)) + " uncached games, ", end="")
 
     if(len(games) == 0):
+        print()
         return
 
     matchDataObjects = []
