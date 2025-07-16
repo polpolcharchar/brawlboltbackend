@@ -1,7 +1,7 @@
 import json
 import boto3
 from datetime import datetime
-from DatabaseUtility.itemUtility import decimal_serializer
+from DatabaseUtility.itemUtility import decimalAndSetSerializer
 from DatabaseUtility.playerUtility import beginTrackingPlayer, compileUncachedStats, getPlayerInfo, updateStatsLastAccessed
 from DatabaseUtility.trieUtility import BRAWL_TRIE_TABLE, fetchTrieData, fetchRecentTrieData
 
@@ -62,7 +62,7 @@ def lambda_handler(event, context):
 
         return {
             'statusCode': 200,
-            'body': json.dumps(fetchResult, default=lambda x: decimal_serializer(x)),
+            'body': json.dumps(fetchResult, default=lambda x: decimalAndSetSerializer(x)),
             'headers': CORS_HEADERS
         }
 
@@ -101,7 +101,7 @@ def lambda_handler(event, context):
         
         return {
             'statusCode': 200,
-            'body': json.dumps(fetchResult, default=lambda x: decimal_serializer(x)),
+            'body': json.dumps(fetchResult, default=lambda x: decimalAndSetSerializer(x)),
             'headers': CORS_HEADERS
         }
         

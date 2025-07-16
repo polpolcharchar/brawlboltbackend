@@ -475,8 +475,6 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
         def fetchChildrenNodes(pathID, dynamodb):
             childrenPathIDs = fetchChildrenPaths(pathID, dynamodb)
 
-            print(childrenPathIDs)
-
             childrenPathIDKeys = [{"pathID": {"S": childPathID}, "filterID": {"S": filterID}} for childPathID in childrenPathIDs]
             childrenItems = batch_get_all_items(BRAWL_TRIE_TABLE, childrenPathIDKeys, dynamodb, PROJECTION_EXPRESSION)
 
