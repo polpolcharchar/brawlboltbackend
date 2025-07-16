@@ -1,9 +1,6 @@
 from decimal import Decimal
 from boto3.dynamodb.types import TypeDeserializer
 
-# from CompilerStructuresModule.CompilerStructures.frequencyCompiler import FrequencyCompiler
-# from CompilerStructuresModule.CompilerStructures.gameAttributeTrie import GameAttributeTrie
-
 deserializer = TypeDeserializer()
 
 def prepareItem(game):
@@ -18,7 +15,7 @@ def convertToDynamodbFormat(value):
         return {"B": value}
     elif isinstance(value, bool):
         return {"BOOL": value}
-    elif isinstance(value, int) or isinstance(value, float):
+    elif isinstance(value, int) or isinstance(value, float) or isinstance(value, Decimal):
         return {"N": str(value)}
     elif isinstance(value, dict):
         return {"M": {k: convertToDynamodbFormat(v) for k, v in value.items()}}
@@ -26,10 +23,31 @@ def convertToDynamodbFormat(value):
         return {"L": [convertToDynamodbFormat(v) for v in value]}
     elif value is None:
         return {"NULL": True}
-    elif isinstance(value, Decimal):
-        return {"N": str(value)}
+    elif isinstance(value, (set, frozenset)):
+        if not value:
+            raise ValueError("DynamoDB does not support empty sets.")
+        
+        elem_types = {type(v) for v in value}
+
+        if len(elem_types) > 1:
+            raise ValueError(f"Mixed-type sets are not supported by DynamoDB: {elem_types}")
+
+        elem_type = elem_types.pop()
+        if issubclass(elem_type, str):
+            return {"SS": list(value)}
+        elif issubclass(elem_type, (int, float, Decimal)):
+            return {"NS": [str(v) for v in value]}
+        elif issubclass(elem_type, bytes):
+            return {"BS": list(value)}
+        else:
+            raise ValueError(f"Unsupported set element type for DynamoDB: {elem_type}")
+
     elif hasattr(value, "__dict__"):
-        return {"M": {k: convertToDynamodbFormat(v) for k, v in vars(value).items() if k != "stat_chain"}}
+        return {"M": {
+            k: convertToDynamodbFormat(v)
+            for k, v in vars(value).items()
+            if k != "stat_chain"
+        }}
     else:
         raise ValueError(f"Unsupported value type: {type(value)}")
 def deserializeDynamoDbItem(dynamodbItem):
