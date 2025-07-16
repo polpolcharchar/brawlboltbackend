@@ -4,7 +4,7 @@ from DatabaseUtility.itemUtility import deserializeDynamoDbItem, prepareItem
 
 GAMES_TABLE_NAME = "BrawlStarsGames"
 
-def batchWriteGamesToDynamodb(items, dynamodb):
+def batchWriteGamesToDynamodb(items, dynamodb, doLogging=False):
     """Write items to DynamoDB in batches."""
     try:
         # DynamoDB limits batch write to 25 items per request
@@ -29,7 +29,8 @@ def batchWriteGamesToDynamodb(items, dynamodb):
     except:
         print(f"Error writing batch to DynamoDB")
     
-    print("Finished writing " + str(len(items)) + " to DB")
+    if doLogging:
+        print("Finished writing " + str(len(items)) + " to DB")
 
 def getAllUncachedGames(playerTag, dynamodb):
     games = []

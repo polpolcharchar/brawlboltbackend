@@ -117,7 +117,7 @@ def updateDatabaseTrie(basePath, matchDataObjects, filterID, dynamodb, isGlobal,
                 sanitizedKey = key.replace("-", "_")
 
                 name_key = f"#k{sanitizedKey}"      # for attribute name placeholder
-                value_key = f":inc{key}"   # for value placeholder
+                value_key = f":inc{sanitizedKey}"   # for value placeholder
 
                 expr_attr_names[name_key] = key
                 expr_attr_values[value_key] = {"N": str(delta)}
@@ -212,31 +212,33 @@ def updateDatabaseTrie(basePath, matchDataObjects, filterID, dynamodb, isGlobal,
             # Recursively create parent with this as child
             addPath(parentPath, [pathID], dynamodb)
 
-    print(f"{len(pathIDUpdates)} paths to update")
+    # print(f"{len(pathIDUpdates)} paths to update")
 
     startTime = time.time()
-    print("Starting update...")
+    # print("Starting update...")
 
     count = 0
 
+    print(f"updating {len(pathIDUpdates)} paths, ", end="")
     for pathID, resultCompiler in pathIDUpdates.items():
-        print(f"Updating path {count + 1}/{len(pathIDUpdates)}: {pathID}")
+        # print(f"Updating path {count + 1}/{len(pathIDUpdates)}: {pathID}")
+
         if updatePath(pathID, resultCompiler, dynamodb) and not skipToAddImmediately:
-            # print("Success")
             pass
         else:
-            # print("Failed, adding")
             addPath(pathID, [], dynamodb)
             newUpdateResult = updatePath(pathID, resultCompiler, dynamodb)
-            # print("Update result ", newUpdateResult)
+
+            if not newUpdateResult:
+                print("Failed to update after adding, this is a HUGE problem!")
         
         count += 1
     
     endTime = time.time()
-    print(f"Update completed in {endTime - startTime:.2f} seconds.")
-    if endTime - startTime > 0:
+    # print(f"Update completed in {endTime - startTime:.2f} seconds.")
+    # if endTime - startTime > 0:
         # Print the rate of paths updated per second
-        print(f"Updated {count} paths at a rate of {count / (endTime - startTime):.2f} paths/second.")
+        # print(f"Updated {count} paths at a rate of {count / (endTime - startTime):.2f} paths/second.")
     
 def getPathIDsToUpdate(matchData, basePath, isGlobal):
     result = []
@@ -283,13 +285,7 @@ def getCompilersToUpdate(matchDataObjects, basePath, isGlobal):
         idsToUpdate = getPathIDsToUpdate(matchData, basePath, isGlobal)
 
         for id in idsToUpdate:
-
-            #Add new ids to update
             if id not in pathIDUpdates:
-                # if isGlobal:
-                #     pathIDUpdates[id] = GlobalResultCompiler()
-                # else:
-                #     pathIDUpdates[id] = PlayerResultCompiler()
                 pathIDUpdates[id] = PlayerResultCompiler()
             
             pathIDUpdates[id].handle_battle_result(matchData)
@@ -656,6 +652,7 @@ def fetchRecentTrieData(basePath, numItems, isGlobal, type, mode, map, brawler, 
         fetchResult = fetchTrieData(
             basePath, filterID, type, mode, map, brawler, targetAttribute, isGlobal, dynamodb
         )
+        fetchResult['datetime'] = filterID
         fetchResults.append(fetchResult)
     
     return fetchResults
