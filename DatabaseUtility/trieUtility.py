@@ -3,70 +3,22 @@ import time
 
 from CompilerStructuresModule.CompilerStructures.matchData import MatchData
 from CompilerStructuresModule.CompilerStructures.playerResultCompiler import PlayerResultCompiler
-from DatabaseUtility.itemUtility import batch_get_all_items, batchWriteToDynamoDB, prepareItem
+from DatabaseUtility.itemUtility import batch_get_all_items, prepareItem
 from DatabaseUtility.modeToMapOverrideUtility import getMode
 
 from boto3.dynamodb.types import TypeDeserializer
 
-BRAWL_TRIE_TABLE = "BrawlTrieStorage"
-
-# Saving:
-# def saveOldPlayerStatsObjectToTrieDatabase(playerTag, filterID, dynamodb):
-#     brawlStats = getPlayerStatsObject(playerTag, dynamodb)
-#     tries = {
-#         "$modeBrawler": brawlStats.typeModeBrawler, 
-#         "$modeMapBrawler": brawlStats.typeModeMapBrawler, 
-#         "$brawlerModeMap": brawlStats.typeBrawlerModeMap
-#     }
-#     for key, value in tries.items():
-#         jsonified = value.to_dict()
-#         saveTrie(jsonified, playerTag + key, filterID, dynamodb)
-# def saveOldGlobalStatsObjectToTrieDatabase(datetime, dynamodb):
-#     globalStats = getGlobalStatsObject(datetime, dynamodb)
-#     tries = {
-#         "$modeBrawler": globalStats.typeModeBrawler, 
-#         "$brawler": globalStats.typeBrawler, 
-#     }
-#     for key, value in tries.items():
-#         jsonified = value.to_dict()
-#         saveTrie(jsonified, "global" + key, datetime, dynamodb)
-
-# def saveTrie(gameAttributeTrieJSON, basePath, filterID, dynamodb):
-#     allItems = getAllTrieNodeItems(gameAttributeTrieJSON, basePath, filterID, dynamodb)
-
-#     preparedItems = [prepareItem(item) for item in allItems]
-
-#     print(f"Saving {len(preparedItems)} items... ", end="")
-#     batchWriteToDynamoDB(preparedItems, BRAWL_TRIE_TABLE, dynamodb)
-#     print("Done.")
-
-# def getAllTrieNodeItems(gameAttributeTrieJSON, currentPath, filterID, dynamodb):
-
-#     items = []
-#     childrenPathIDs = {}
-
-#     for key, value in gameAttributeTrieJSON.get("stat_map", {}).items():
-#         # Key is the next attribute, like Colt, Ranked, or brawlBall
-#         # Value is the gameAttributeTrie
-
-#         childPath = currentPath + "$" + key
-
-#         childrenPathIDs.append(childPath)
-
-#         childrenItems = getAllTrieNodeItems(value, childPath, filterID, dynamodb)
-#         items.extend(childrenItems)
-    
-#     items.append(getTrieNodeItem(gameAttributeTrieJSON["overall"], currentPath, filterID, childrenPathIDs))
-
-#     return items
+BRAWL_TRIE_TABLE = "BrawlStarsTrieData"
     
 def getTrieNodeItem(resultCompilerJSON, pathID, filterID, childrenPathIDs):
     item = {
         "pathID": pathID,
         "filterID": filterID,
-        "childrenPathIDs": childrenPathIDs,
         "resultCompiler": resultCompilerJSON
     }
+
+    if childrenPathIDs:
+        item["childrenPathIDs"] = childrenPathIDs
 
     return item
 
@@ -161,7 +113,13 @@ def updateDatabaseTrie(basePath, matchDataObjects, filterID, dynamodb, isGlobal,
             return True
 
         except Exception as e:
-            # print("Error during update:", e)
+            # print("Error during update:")
+            # print(e)
+            # print(pathID)
+            # print(filterID)
+            # print(update_expr)
+            # print(expr_attr_names)
+            # print(expr_attr_values)
             return False
 
     def addPath(pathID, childrenPathIDs, dynamodb):
@@ -207,33 +165,41 @@ def updateDatabaseTrie(basePath, matchDataObjects, filterID, dynamodb, isGlobal,
                 # print("Successfully updated:", response["Attributes"]["childrenPathIDs"])
                 return True
             except Exception as e:
+                # print("Error add child path: ")
+                # print(e)
+                # print(parentPathID)
+                # print(childPathID)
                 return False
 
+        # print("Attempting to add this as a child to parent")
         if addChildPathID(parentPathID=parentPath, childPathID=pathID, dynamodb=dynamodb):
+            # print("Success")
             pass
         else:
+            # print("Failed, creating parent path")
+            # print("Parent path " + str(parentPath))
             # Recursively create parent with this as child
             addPath(parentPath, {pathID}, dynamodb)
 
     # print(f"{len(pathIDUpdates)} paths to update")
 
-    startTime = time.time()
+    # startTime = time.time()
     # print("Starting update...")
 
     count = 0
 
     print(f"updating {len(pathIDUpdates)} paths, ", end="")
     for pathID, resultCompiler in pathIDUpdates.items():
-        # print(f"Updating path {count + 1}/{len(pathIDUpdates)}: {pathID}")
-
         if updatePath(pathID, resultCompiler, dynamodb) and not skipToAddImmediately:
             pass
         else:
-            addPath(pathID, {}, dynamodb)
+            addPath(pathID, set(), dynamodb)
             newUpdateResult = updatePath(pathID, resultCompiler, dynamodb)
 
             if not newUpdateResult:
+                print()
                 print("Failed to update after adding, this is a HUGE problem!")
+                print()
         
         count += 1
     
