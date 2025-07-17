@@ -238,11 +238,12 @@ def getPathIDsToUpdate(matchData, basePath, isGlobal):
 
         # Extension of modeBrawler
         # These are specifically global because they already exist in players' modemapbrawler
-        addPathID(f"$modeBrawler${matchData.type}")
-        addPathID(f"$modeBrawler${matchData.type}${matchData.mode}")
+        # addPathID(f"$modeBrawler${matchData.type}")
+        # addPathID(f"$modeBrawler${matchData.type}${matchData.mode}")
+        # modeBrawler already exists
 
         # Brawler
-        addPathID(f"$brawler${matchData.type}${matchData.brawler}")
+        addPathID(f"$brawlerMode${matchData.type}${matchData.brawler}${matchData.mode}")
 
     return result
 
@@ -433,6 +434,9 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
 
             if 'Item' not in response:
                 return []
+            
+            if 'childrenPathIDs' not in response['Item']:
+                return []
 
             childrenPathIDs = deserializer.deserialize(response['Item']["childrenPathIDs"])
 
@@ -458,14 +462,14 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
                 else:
                     #typeBrawlerModeMap type -> brawlers
                     if isGlobal:
-                        return f"brawler${type}"
+                        return f"brawlerMode${type}"
                     else:
                         return f"brawlerModeMap${type}"
             elif targetAttribute == "mode":
                 if brawler is not None:
                     #typeBrawlerModeMap type + brawler -> modes
                     if isGlobal:
-                        return f"brawler${type}${brawler}"
+                        return f"brawlerMode${type}${brawler}"
                     else:
                         return f"brawlerModeMap${type}${brawler}"
                 else:
@@ -485,6 +489,8 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
                 raise Exception("Invalid targetAttribute!")
 
         fullPath = f"{basePath}${getPathForFetchWithTypeAsParameter(targetAttribute, type, mode, map, brawler, isGlobal)}"
+
+        print(fullPath)
 
         potentialMaps = []
         if not isGlobal and mode is not None:
@@ -524,7 +530,7 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
                         return f"brawlerModeMap${type}${brawler}${mode}"
                 else:
                     if isGlobal:
-                        return f"brawler${type}${brawler}"
+                        return f"brawlerMode${type}${brawler}"
                     else:
                         return f"brawlerModeMap${type}${brawler}"
             elif mode is not None:
@@ -625,3 +631,34 @@ def fetchRecentTrieData(basePath, numItems, isGlobal, type, mode, map, brawler, 
         fetchResults.append(fetchResult)
     
     return fetchResults
+
+# Removing
+def removeTrieNodeAndChildren(pathID, filterID, dynamodb):
+    try:
+        # Fetch the node
+        response = dynamodb.get_item(
+            TableName=BRAWL_TRIE_TABLE,
+            Key={"pathID": {"S": pathID}, "filterID": {"S": filterID}}
+        )
+
+        if 'Item' not in response:
+            print(f"Node not found: {pathID}")
+            return
+
+        item = response['Item']
+
+        # Recursively delete children if present
+        if 'childrenPathIDs' in item and 'SS' in item['childrenPathIDs']:
+            for childPathID in item['childrenPathIDs']['SS']:
+                if childPathID != pathID:
+                    removeTrieNodeAndChildren(childPathID, filterID, dynamodb)
+
+        # Delete this node
+        dynamodb.delete_item(
+            TableName=BRAWL_TRIE_TABLE,
+            Key={"pathID": {"S": pathID}, "filterID": {"S": filterID}}
+        )
+        print(f"Deleted: {pathID}")
+
+    except Exception as e:
+        print(f"Error deleting {pathID}: {e}")
