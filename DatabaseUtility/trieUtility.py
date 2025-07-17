@@ -8,7 +8,7 @@ from DatabaseUtility.modeToMapOverrideUtility import getMode
 
 from boto3.dynamodb.types import TypeDeserializer
 
-BRAWL_TRIE_TABLE = "BrawlStarsTrieData"
+BRAWL_TRIE_TABLE = "BrawlStarsTrieData2"
     
 def getTrieNodeItem(resultCompilerJSON, pathID, filterID, childrenPathIDs):
     item = {
@@ -141,10 +141,13 @@ def updateDatabaseTrie(basePath, matchDataObjects, filterID, dynamodb, isGlobal,
         # Reference what the parent should be
         def getParentPath(pathID):
             if '$' not in pathID:
-                return pathID
+                return None
             return pathID[:pathID.rfind('$')]
 
         parentPath = getParentPath(pathID)
+
+        if not parentPath:
+            return
 
 
         # Attempt to add this as a child to the parent
@@ -173,12 +176,8 @@ def updateDatabaseTrie(basePath, matchDataObjects, filterID, dynamodb, isGlobal,
 
         # print("Attempting to add this as a child to parent")
         if addChildPathID(parentPathID=parentPath, childPathID=pathID, dynamodb=dynamodb):
-            # print("Success")
             pass
         else:
-            # print("Failed, creating parent path")
-            # print("Parent path " + str(parentPath))
-            # Recursively create parent with this as child
             addPath(parentPath, {pathID}, dynamodb)
 
     # print(f"{len(pathIDUpdates)} paths to update")
@@ -188,7 +187,7 @@ def updateDatabaseTrie(basePath, matchDataObjects, filterID, dynamodb, isGlobal,
 
     count = 0
 
-    print(f"updating {len(pathIDUpdates)} paths, ", end="")
+    # print(f"updating {len(pathIDUpdates)} paths, ", end="")
     for pathID, resultCompiler in pathIDUpdates.items():
         if updatePath(pathID, resultCompiler, dynamodb) and not skipToAddImmediately:
             pass
@@ -238,11 +237,12 @@ def getPathIDsToUpdate(matchData, basePath, isGlobal):
 
         # Extension of modeBrawler
         # These are specifically global because they already exist in players' modemapbrawler
-        # addPathID(f"$modeBrawler${matchData.type}")
-        # addPathID(f"$modeBrawler${matchData.type}${matchData.mode}")
-        # modeBrawler already exists
+        addPathID(f"$modeBrawler${matchData.type}")
+        addPathID(f"$modeBrawler${matchData.type}${matchData.mode}")
 
         # Brawler
+        addPathID(f"$brawlerMode${matchData.type}")
+        addPathID(f"$brawlerMode${matchData.type}${matchData.brawler}")
         addPathID(f"$brawlerMode${matchData.type}${matchData.brawler}${matchData.mode}")
 
     return result
@@ -586,7 +586,7 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
                 result.append(deserializedItem)
 
                 # If there is mode but no map, include children maps. they will be children of the fetchedItem
-                if mode is not None and map is None:
+                if mode is not None and map is None and "childrenPathIDs" in deserializedItem:
                     childrenPathIDs = deserializedItem["childrenPathIDs"]
                     for childPathID in childrenPathIDs:
                         potentialMapsSet.add(childPathID.split('$')[-1])
