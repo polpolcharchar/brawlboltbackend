@@ -408,10 +408,7 @@ def getMatchDataObjectsFromGame(game, playerTag, includeAllPlayers):
 
 
 # Fetching:
-def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute, isGlobal, dynamodb):
-    # See TrieStorageNew.md -> ## Fetching
-    
-    PROJECTION_EXPRESSION = "pathID, resultCompiler, childrenPathIDs"
+def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute, isGlobal, dynamodb):    
 
     if targetAttribute != "type" and targetAttribute is not None:
 
@@ -425,7 +422,8 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
         def fetchChildrenPaths(pathID, dynamodb):
             response = dynamodb.get_item(
                 TableName=BRAWL_TRIE_TABLE,
-                Key={"pathID": {"S": pathID}, "filterID": {"S": filterID}}
+                Key={"pathID": {"S": pathID}, "filterID": {"S": filterID}},
+                ProjectionExpression="childrenPathIDs"
             )
 
             if 'Item' not in response:
@@ -442,7 +440,7 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
             childrenPathIDs = fetchChildrenPaths(pathID, dynamodb)
 
             childrenPathIDKeys = [{"pathID": {"S": childPathID}, "filterID": {"S": filterID}} for childPathID in childrenPathIDs]
-            childrenItems = batch_get_all_items(BRAWL_TRIE_TABLE, childrenPathIDKeys, dynamodb, PROJECTION_EXPRESSION)
+            childrenItems = batch_get_all_items(BRAWL_TRIE_TABLE, childrenPathIDKeys, dynamodb, projection_expression="pathID, resultCompiler")
 
             deserializedResult = [deserializeDynamoDbItem(childItem) for childItem in childrenItems]
             return deserializedResult
@@ -498,7 +496,7 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
         }
 
     else:
-        # targetAttribute == "type" and type is None
+        # targetAttribute == "type"
         # This can probably be merged with the above large targetAttribute elif blocks by adding elif targetAttribute == "type"
 
         # For these, requests are harder since type is always the root of the path
@@ -545,7 +543,7 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
             response = dynamodb.get_item(
                 TableName=BRAWL_TRIE_TABLE,
                 Key={"pathID": {"S": path}, "filterID": {"S": filterID}},
-                ProjectionExpression=PROJECTION_EXPRESSION
+                ProjectionExpression="pathID, resultCompiler"
             )
 
             if 'Item' not in response:
@@ -564,25 +562,26 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
         result = []
         potentialMapsSet = set()
 
+        # If there is mode but no map, include children maps
+        childrenPathIDsNeededForMaps = mode is not None and map is None
+        conditionalProjectionExpression = "pathID, resultCompiler, childrenPathIDs" if childrenPathIDsNeededForMaps else "pathID, resultCompiler"
+
         for potentialType in getPotentialTypes():
 
             fullPath = f"{basePath}${getPathForFetchWithTypeAsTarget(potentialType, mode, map, brawler, isGlobal)}"
             response = dynamodb.get_item(
                 TableName=BRAWL_TRIE_TABLE,
                 Key={"pathID": {"S": fullPath}, "filterID": {"S": filterID}},
-                ProjectionExpression=PROJECTION_EXPRESSION
+                ProjectionExpression=conditionalProjectionExpression
             )
 
             if 'Item' in response:
-
                 deserializedItem = deserializeDynamoDbItem(response['Item'])
 
                 result.append(deserializedItem)
 
-                # If there is mode but no map, include children maps. they will be children of the fetchedItem
-                if mode is not None and map is None and "childrenPathIDs" in deserializedItem:
-                    childrenPathIDs = deserializedItem["childrenPathIDs"]
-                    for childPathID in childrenPathIDs:
+                if "childrenPathIDs" in deserializedItem:
+                    for childPathID in deserializedItem["childrenPathIDs"]:
                         potentialMapsSet.add(childPathID.split('$')[-1])
         
         return {
@@ -602,6 +601,7 @@ def fetchRecentTrieData(basePath, numItems, isGlobal, type, mode, map, brawler, 
             },
             ScanIndexForward=False,
             Limit=numItems,
+            ProjectionExpression="filterID"
         )
 
         if 'Items' not in response or len(response['Items']) == 0:
