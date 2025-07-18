@@ -1,9 +1,6 @@
 from decimal import Decimal
 from boto3.dynamodb.types import TypeDeserializer
 
-from CompilerStructuresModule.CompilerStructures.frequencyCompiler import FrequencyCompiler
-from CompilerStructuresModule.CompilerStructures.gameAttributeTrie import GameAttributeTrie
-
 deserializer = TypeDeserializer()
 
 def prepareItem(game):
@@ -65,25 +62,6 @@ def decimalAndSetSerializer(obj):
     elif isinstance(obj, set):
         return list(obj)
     return obj
-
-# Currently only used in globalUtility, see getSpecificGlobalStatOverTime, can be removed at some point
-def fullyJSONifyData(d):
-    if isinstance(d, GameAttributeTrie):
-        return d.to_dict()
-    elif isinstance(d, FrequencyCompiler):
-        return d.to_dict()
-    elif isinstance(d, Decimal):
-        return int(d) if d % 1 == 0 else float(d)
-    elif isinstance(d, dict):
-        return {key: fullyJSONifyData(value) for key, value in d.items()}
-    elif isinstance(d, list):
-        return [fullyJSONifyData(item) for item in d]
-    elif isinstance(d, set):
-        return [fullyJSONifyData(item) for item in sorted(d)]
-    elif isinstance(d, tuple):
-        return tuple(fullyJSONifyData(item) for item in d)
-    else:
-        return d
 
 def batchWriteToDynamoDB(items, tableName, dynamodb):
     """Write items to DynamoDB in batches."""

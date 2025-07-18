@@ -1,5 +1,3 @@
-import json
-import boto3
 
 _mapToModeOverrides = {
     "Moonbark Meadow": "dodgeBrawl",

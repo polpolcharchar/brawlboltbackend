@@ -1,12 +1,9 @@
 import math
-import time
 
 from CompilerStructuresModule.CompilerStructures.matchData import MatchData
 from CompilerStructuresModule.CompilerStructures.playerResultCompiler import PlayerResultCompiler
-from DatabaseUtility.itemUtility import batch_get_all_items, prepareItem
+from DatabaseUtility.itemUtility import batch_get_all_items, deserializeDynamoDbItem, prepareItem
 from DatabaseUtility.modeToMapOverrideUtility import getMode
-
-from boto3.dynamodb.types import TypeDeserializer
 
 BRAWL_TRIE_TABLE = "BrawlStarsTrieData2"
     
@@ -413,8 +410,7 @@ def getMatchDataObjectsFromGame(game, playerTag, includeAllPlayers):
 # Fetching:
 def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute, isGlobal, dynamodb):
     # See TrieStorageNew.md -> ## Fetching
-    deserializer = TypeDeserializer()
-
+    
     PROJECTION_EXPRESSION = "pathID, resultCompiler, childrenPathIDs"
 
     if targetAttribute != "type" and targetAttribute is not None:
@@ -437,8 +433,8 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
             
             if 'childrenPathIDs' not in response['Item']:
                 return []
-
-            childrenPathIDs = deserializer.deserialize(response['Item']["childrenPathIDs"])
+            
+            childrenPathIDs = deserializeDynamoDbItem(response['Item'])['childrenPathIDs']
 
             return childrenPathIDs
 
@@ -448,7 +444,7 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
             childrenPathIDKeys = [{"pathID": {"S": childPathID}, "filterID": {"S": filterID}} for childPathID in childrenPathIDs]
             childrenItems = batch_get_all_items(BRAWL_TRIE_TABLE, childrenPathIDKeys, dynamodb, PROJECTION_EXPRESSION)
 
-            deserializedResult = [{k: deserializer.deserialize(v) for k, v in childItem.items()} for childItem in childrenItems]
+            deserializedResult = [deserializeDynamoDbItem(childItem) for childItem in childrenItems]
             return deserializedResult
 
         def getPathForFetchWithTypeAsParameter(targetAttribute, type, mode, map, brawler, isGlobal):
@@ -489,8 +485,6 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
                 raise Exception("Invalid targetAttribute!")
 
         fullPath = f"{basePath}${getPathForFetchWithTypeAsParameter(targetAttribute, type, mode, map, brawler, isGlobal)}"
-
-        print(fullPath)
 
         potentialMaps = []
         if not isGlobal and mode is not None:
@@ -560,7 +554,7 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
                     "potentialMaps": []
                 }
             
-            deserializedItem = {k: deserializer.deserialize(v) for k, v in response['Item'].items()}
+            deserializedItem = deserializeDynamoDbItem(response['Item'])
 
             return {
                 "trieData": [deserializedItem],
@@ -581,7 +575,7 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
 
             if 'Item' in response:
 
-                deserializedItem = {k: deserializer.deserialize(v) for k, v in response['Item'].items()}
+                deserializedItem = deserializeDynamoDbItem(response['Item'])
 
                 result.append(deserializedItem)
 

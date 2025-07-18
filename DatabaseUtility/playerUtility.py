@@ -1,13 +1,10 @@
 from datetime import datetime, timedelta
-import json
 from DatabaseUtility.trieUtility import getMatchDataObjectsFromGame, updateDatabaseTrie
 from apiUtility import getApiProxyPlayerInfo
 from DatabaseUtility.gamesUtility import batchWriteGamesToDynamodb, getAllUncachedGames, saveRecentGames
 from DatabaseUtility.itemUtility import deserializeDynamoDbItem, prepareItem
-from brawlStats import BrawlStats
 
 PLAYER_INFO_TABLE = 'BrawlStarsPlayersInfo'
-PLAYER_COMPILED_STATS_TABLE = 'BrawlStarsPlayers2'
 
 def getAllPlayerTagsSet(dynamodb):
 
@@ -65,73 +62,6 @@ def getAllPlayerTagsSetInRecentDays(dynamodb, numDays=30):
 
     return tags
 
-def getPlayerRegularModeMapBrawlerJSON(playerTag, dynamodb):
-    try:
-
-        response = dynamodb.query(
-            TableName=PLAYER_COMPILED_STATS_TABLE,
-            KeyConditionExpression="playerTag = :playerTag AND statType = :statType",
-            ExpressionAttributeValues={
-                ":playerTag": {"S": playerTag},
-                ":statType": {"S": "regularModeMapBrawler"}
-            }
-        )
-
-        if response["Items"] is not None:
-            return json.loads(response["Items"][0]["stats"]["S"])
-        else:
-            return None
-    except Exception as e:
-        return None
-
-def getPlayerCompiledStatsJSON(playerTag, dynamodb):
-    try:
-        # Query all items for the given playerTag
-        response = dynamodb.query(
-            TableName=PLAYER_COMPILED_STATS_TABLE,
-            KeyConditionExpression="playerTag = :playerTag",
-            ExpressionAttributeValues={":playerTag": {"S": playerTag}}
-        )
-
-        if len(response["Items"]) == 7:
-            items = response["Items"]
-
-            # Deserialize each stat type
-            stats = {
-                item["statType"]["S"]: json.loads(item["stats"]["S"])
-                for item in items
-            }
-
-            return stats
-        else:
-            return []
-    except Exception as e:
-        return []
-
-def getPlayerStatsObject(playerTag, dynamodb):
-    try:
-        stats = getPlayerCompiledStatsJSON(playerTag, dynamodb)
-
-        if len(stats) == 7:
-
-            playerDataJSON = {
-                "regular_mode_map_brawler": stats.get("regularModeMapBrawler", {}),
-                "regular_mode_brawler": stats.get("regularModeBrawler", {}),
-                "regular_brawler_mode_map": stats.get("regularBrawlerModeMap", {}),
-                "ranked_mode_map_brawler": stats.get("rankedModeMapBrawler", {}),
-                "ranked_mode_brawler": stats.get("rankedModeBrawler", {}),
-                "ranked_brawler_mode_map": stats.get("rankedBrawlerModeMap", {}),
-                "showdown_rank_compilers": stats.get("showdownRankCompilers", {})
-            }
-
-            return BrawlStats(False, playerDataJSON)
-        else:
-            print("No stats found")
-            return BrawlStats(False)
-    except Exception as e:
-        print(f"Error loading player stats for {playerTag}: {e}")
-        return BrawlStats(False)
- 
 def compileUncachedStats(playerTag, dynamodb):
     print(playerTag + ": ", end="")
 
@@ -210,6 +140,3 @@ def getPlayerInfo(playerTag, dynamodb):
             ':playerTag': {'S': playerTag},
         },
     )
-
-
-

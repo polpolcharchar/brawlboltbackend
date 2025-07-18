@@ -1,10 +1,8 @@
 import json
 import boto3
-from datetime import datetime
-from DatabaseUtility.itemUtility import decimalAndSetSerializer
+from DatabaseUtility.itemUtility import decimalAndSetSerializer, deserializeDynamoDbItem
 from DatabaseUtility.playerUtility import beginTrackingPlayer, compileUncachedStats, getPlayerInfo, updateStatsLastAccessed
 from DatabaseUtility.trieUtility import BRAWL_TRIE_TABLE, fetchTrieData, fetchRecentTrieData
-from boto3.dynamodb.types import TypeDeserializer
 
 CORS_HEADERS = {
   'Content-Type': 'application/json',
@@ -42,8 +40,7 @@ def lambda_handler(event, context):
             }
         
         rootGlobalStatObject = response['Items'][0]
-        deserializer = TypeDeserializer()
-        deserializedItem = {k: deserializer.deserialize(v) for k, v in rootGlobalStatObject.items()}
+        deserializedItem = deserializeDynamoDbItem(rootGlobalStatObject)
 
         return {
             'statusCode': 200,
@@ -176,6 +173,7 @@ def lambda_handler(event, context):
             'body': json.dumps(resultBody),
             'headers': CORS_HEADERS
         }
+    
     else:
         return {
             'statusCode': 400,

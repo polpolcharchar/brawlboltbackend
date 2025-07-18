@@ -5,6 +5,5 @@ __pycache__/
 /CompilerStructuresModule/CompilerStructures/__pycache__/
 /CompilerStructuresModule/CompilerStructures/__init__.py
 lambda_function.zip
-/GlobalCompiler/
 globalCompiler.py
 test.py
