@@ -4,6 +4,7 @@ from datetime import datetime
 from DatabaseUtility.itemUtility import decimalAndSetSerializer
 from DatabaseUtility.playerUtility import beginTrackingPlayer, compileUncachedStats, getPlayerInfo, updateStatsLastAccessed
 from DatabaseUtility.trieUtility import BRAWL_TRIE_TABLE, fetchTrieData, fetchRecentTrieData
+from boto3.dynamodb.types import TypeDeserializer
 
 CORS_HEADERS = {
   'Content-Type': 'application/json',
@@ -20,7 +21,37 @@ def lambda_handler(event, context):
 
     eventBody = json.loads(event['body'])
 
-    if eventBody['playerTag'] == "":
+    if eventBody['type'] == "getRecentGlobalScanInfo":
+
+        response = dynamodb.query(
+            TableName=BRAWL_TRIE_TABLE,
+            KeyConditionExpression="pathID = :pathID",
+            ExpressionAttributeValues={
+                ":pathID": {"S": "global"}
+            },
+            ScanIndexForward=False,
+            Limit=1,
+            ProjectionExpression="filterID, numGames, hourRange"
+        )
+
+        if len(response['Items']) == 0:
+            return {
+                'statusCode': 500,
+                'body': json.dumps({'message': 'Failed to fetch global stats object.'}),
+                'headers': CORS_HEADERS,
+            }
+        
+        rootGlobalStatObject = response['Items'][0]
+        deserializer = TypeDeserializer()
+        deserializedItem = {k: deserializer.deserialize(v) for k, v in rootGlobalStatObject.items()}
+
+        return {
+            'statusCode': 200,
+            'body': json.dumps(deserializedItem, default=lambda x: decimalAndSetSerializer(x)),
+            'headers': CORS_HEADERS
+        }
+
+    elif eventBody['playerTag'] == "":
         return {
             'statusCode': 502,
             'body': json.dumps({'message': 'Invalid playerTag'}),
