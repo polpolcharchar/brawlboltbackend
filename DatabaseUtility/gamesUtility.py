@@ -1,3 +1,4 @@
+import datetime
 from apiUtility import getApiProxyRecentGames
 from DatabaseUtility.itemUtility import deserializeDynamoDbItem, prepareItem
 
@@ -101,3 +102,36 @@ def saveRecentGames(playerTag, dynamodb):
     preparedGames = [prepareItem(game) for game in newGames]
 
     batchWriteGamesToDynamodb(preparedGames, dynamodb)
+
+def queryGames(player_tag: str, battle_time: str, num_before: int, num_after: int, dynamodb):
+    resultGames = []
+
+    # Get games before the target time (descending order)
+    if num_before > 0:
+        before_response = dynamodb.query(
+            TableName=GAMES_TABLE_NAME,
+            KeyConditionExpression="playerTag = :pt AND battleTime < :target",
+            ExpressionAttributeValues={
+                ":pt": {"S": player_tag},
+                ":target": {"S": battle_time}
+            },
+            ScanIndexForward=False,  # descending
+            Limit=min(num_before, 10)
+        )
+        resultGames.extend(before_response.get("Items", []))
+
+    # Get games after the target time (ascending order)
+    if num_after > 0:
+        after_response = dynamodb.query(
+            TableName=GAMES_TABLE_NAME,
+            KeyConditionExpression="playerTag = :pt AND battleTime > :target",
+            ExpressionAttributeValues={
+                ":pt": {"S": player_tag},
+                ":target": {"S": battle_time}
+            },
+            ScanIndexForward=True,  # ascending
+            Limit=min(num_after, 10)
+        )
+        resultGames.extend(after_response.get("Items", []))
+
+    return resultGames
