@@ -119,8 +119,8 @@ def queryGames(player_tag: str, battle_time: str, num_before: int, num_after: in
             Limit=min(num_before, 10)
         )
 
-        for game in before_response.get("Items", []):
-            resultGames.append(deserializeDynamoDbItem(game))
+        before_games = [deserializeDynamoDbItem(game) for game in before_response.get("Items", [])]
+        resultGames.extend(reversed(before_games))  # Add in ascending order
 
     # Get games after the target time (ascending order)
     if num_after > 0:
