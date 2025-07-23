@@ -1,0 +1,134 @@
+import uuid
+import time
+import bcrypt
+import random
+
+VERIFICATION_TABLE = "BrawlStarsAccountVerification"
+PLAYER_INFO_TABLE = "BrawlStarsPlayerInfo"
+
+VERIFICATION_STEPS_REQUIRED = 2
+TOKEN_EXPIRY_SECONDS = 15 * 60  # 15 minutes
+
+def getRandomIconID():
+    return random.choice([28000002, 28000019])
+
+def handleAccountVerificationRequest(eventBody, dynamodb):
+    request_type = eventBody.get("verificationRequestType")
+    tag = eventBody.get("tag")
+
+    if not tag or not request_type:
+        return {"error": "Missing tag or verificationRequestType"}
+
+    tag = tag.upper().replace("O", "0")
+
+    if request_type == "initiate":
+        return handleInitiateVerification(tag, dynamodb)
+    elif request_type == "verifyStep":
+        return handleVerifyStep(tag, eventBody, dynamodb)
+    elif request_type == "finalize":
+        return handleFinalize(tag, eventBody, dynamodb)
+    else:
+        return {"error": "Invalid verificationRequestType"}
+
+
+def handleInitiateVerification(tag, dynamodb):
+    token = str(uuid.uuid4())
+    iconID = getRandomIconID()
+    timestamp = int(time.time())
+
+    dynamodb.put_item(
+        TableName=VERIFICATION_TABLE,
+        Item={
+            "tag": {"S": tag},
+            "token": {"S": token},
+            "iconIdToSet": {"N": str(iconID)},
+            "verifiedSteps": {"N": "0"},
+            "createdAt": {"N": str(timestamp)},
+        }
+    )
+
+    return {
+        "token": token,
+        "iconIdToSet": iconID
+    }
+
+
+def handleVerifyStep(tag, eventBody, dynamodb):
+    token = eventBody.get("token")
+    if not token:
+        return {"error": "Missing token"}
+
+    response = dynamodb.get_item(
+        TableName=VERIFICATION_TABLE,
+        Key={"tag": {"S": tag}}
+    )
+
+    item = response.get("Item")
+    if not item:
+        return {"error": "Verification not found"}
+
+    if item["token"]["S"] != token:
+        return {"error": "Invalid token"}
+
+    if int(time.time()) - int(item["createdAt"]["N"]) > TOKEN_EXPIRY_SECONDS:
+        return {"error": "Token expired"}
+
+    expectedIconID = int(item["iconIdToSet"]["N"])
+    actualIconID = get_profile_icon_id(tag)
+    if actualIconID != expectedIconID:
+        return {"error": "Icon does not match"}
+
+    numVerifiedSteps = int(item["verifiedSteps"]["N"]) + 1
+    update_expr = "SET verifiedSteps = :vs"
+    expr_values = {":vs": {"N": str(numVerifiedSteps)}}
+
+    dynamodb.update_item(
+        TableName=VERIFICATION_TABLE,
+        Key={"tag": {"S": tag}},
+        UpdateExpression=update_expr,
+        ExpressionAttributeValues=expr_values
+    )
+
+    return {"verifiedSteps": numVerifiedSteps}
+
+
+def handleFinalize(tag, eventBody, dynamodb):
+    token = eventBody.get("token")
+    password = eventBody.get("password")
+
+    if not token or not password:
+        return {"error": "Missing token or password"}
+
+    response = dynamodb.get_item(
+        TableName=VERIFICATION_TABLE,
+        Key={"tag": {"S": tag}}
+    )
+    item = response.get("Item")
+
+    if not item or item["token"]["S"] != token:
+        return {"error": "Invalid or missing verification"}
+
+    if int(item["verifiedSteps"]["N"]) < VERIFICATION_STEPS_REQUIRED:
+        return {"error": "Not enough verification steps"}
+
+    if int(time.time()) - int(item["createdAt"]["N"]) > TOKEN_EXPIRY_SECONDS:
+        return {"error": "Token expired"}
+
+    hashedPassword = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+    # Store the password in the final table
+    dynamodb.update_item(
+        TableName=PLAYER_INFO_TABLE,
+        Key={"tag": {"S": tag}},
+        UpdateExpression="SET #pw = :pw",
+        ExpressionAttributeNames={"#pw": "password"},
+        ExpressionAttributeValues={":pw": {"S": hashedPassword}}
+    )
+
+    # Remove old verification item
+    dynamodb.delete_item(
+        TableName=VERIFICATION_TABLE,
+        Key={"tag": {"S": tag}}
+    )
+
+    return {"success": True}
