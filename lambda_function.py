@@ -57,7 +57,7 @@ def lambda_handler(event, context):
         }
 
     elif eventBody['type'] == 'queryGames':
-        playerTag = eventBody['playerTag'].upper()
+        playerTag = eventBody['playerTag']
         targetDatetime = eventBody['datetime']
         numBefore = eventBody.get('numBefore', 0)
         numAfter = eventBody.get('numAfter', 0)
@@ -79,7 +79,7 @@ def lambda_handler(event, context):
 
         targetAttribute = eventBody['targetAttribute']
 
-        basePath = eventBody['playerTag'].upper()
+        basePath = eventBody['playerTag']
         filterID = eventBody['filterID']
 
         isGlobal = eventBody['isGlobal']
@@ -117,7 +117,7 @@ def lambda_handler(event, context):
 
         targetAttribute = eventBody.get('targetAttribute')
 
-        basePath = eventBody['playerTag'].upper()
+        basePath = eventBody['playerTag']
 
         isGlobal = eventBody['isGlobal']
 
