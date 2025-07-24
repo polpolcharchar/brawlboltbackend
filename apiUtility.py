@@ -51,3 +51,23 @@ def getApiRecentGames(playerTag, doErrorPrinting=True):
             print(f"Failed to fetch data for {playerTag}. HTTP Status Code: {response.status_code}")
             print("Response Message:", response.text)
         return []
+
+def getApiPlayerInfo(playerTag):
+
+    BRAWL_API_KEY = getSecret("BRAWL_API_KEY")
+
+    response = requests.get(
+            f"https://api.brawlstars.com/v1/players/%23{playerTag}",
+            headers={"Authorization": f"Bearer {BRAWL_API_KEY}"}
+        )
+    if response.status_code == 200:
+        return response.json()
+    else:
+        print(f"Failed to fetch data for {playerTag}. HTTP Status Code: {response.status_code}")
+        print("Response Message:", response.text)
+        return []
+
+def getApiPlayerIconID(playerTag):
+    playerInfo = getApiPlayerInfo(playerTag)
+
+    return playerInfo["icon"]["id"]
