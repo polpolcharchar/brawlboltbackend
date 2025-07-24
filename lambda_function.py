@@ -55,9 +55,9 @@ def lambda_handler(event, context):
             'body': json.dumps({'message': 'Invalid playerTag'}),
             'headers': CORS_HEADERS,
         }
-    
+
     elif eventBody['type'] == 'queryGames':
-        playerTag = eventBody['playerTag']
+        playerTag = eventBody['playerTag'].upper()
         targetDatetime = eventBody['datetime']
         numBefore = eventBody.get('numBefore', 0)
         numAfter = eventBody.get('numAfter', 0)
@@ -79,7 +79,7 @@ def lambda_handler(event, context):
 
         targetAttribute = eventBody['targetAttribute']
 
-        basePath = eventBody['playerTag']
+        basePath = eventBody['playerTag'].upper()
         filterID = eventBody['filterID']
 
         isGlobal = eventBody['isGlobal']
@@ -117,7 +117,7 @@ def lambda_handler(event, context):
 
         targetAttribute = eventBody.get('targetAttribute')
 
-        basePath = eventBody['playerTag']
+        basePath = eventBody['playerTag'].upper()
 
         isGlobal = eventBody['isGlobal']
 
@@ -149,12 +149,15 @@ def lambda_handler(event, context):
         }
         
     elif eventBody['type'] == 'getPlayerInfo':
+
+        playerTag = eventBody['playerTag'].upper()
+
         #Standard request 1
-        response = getPlayerInfo(eventBody['playerTag'], dynamodb)
+        response = getPlayerInfo(playerTag, dynamodb)
 
         #Begin tracking this player
         if len(response['Items']) == 0:
-            trackingResult = beginTrackingPlayer(eventBody['playerTag'], dynamodb)
+            trackingResult = beginTrackingPlayer(playerTag, dynamodb)
 
             if not trackingResult:
                 return {
@@ -164,9 +167,9 @@ def lambda_handler(event, context):
                 }
             
             # Always compile new games for new players
-            compileUncachedStats(eventBody['playerTag'], dynamodb)
+            compileUncachedStats(playerTag, dynamodb)
 
-            response = getPlayerInfo(eventBody['playerTag'], dynamodb)
+            response = getPlayerInfo(playerTag, dynamodb)
 
             # If it is still zero, return error:
             if len(response['Items']) == 0:
@@ -177,7 +180,7 @@ def lambda_handler(event, context):
                 }
         
         #Standard request 2
-        updateStatsLastAccessed(eventBody['playerTag'], dynamodb)
+        updateStatsLastAccessed(playerTag, dynamodb)
 
         resultBody = {
             "playerInfo": {"name": response["Items"][0]["username"]["S"]},
