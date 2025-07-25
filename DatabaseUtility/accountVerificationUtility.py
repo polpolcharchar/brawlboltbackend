@@ -1,6 +1,6 @@
 import uuid
 import time
-# import bcrypt
+from passlib.hash import pbkdf2_sha256
 import random
 import jwt
 from DatabaseUtility.secretsUtility import getSecret
@@ -128,78 +128,78 @@ def handleVerifyStep(playerTag, eventBody, dynamodb):
             "newIconIdToSet": newIconID
         }
 
-# def handleFinalize(playerTag, eventBody, dynamodb):
-#     token = eventBody.get("token")
-#     password = eventBody.get("password")
+def handleFinalize(playerTag, eventBody, dynamodb):
+    token = eventBody.get("token")
+    password = eventBody.get("password")
 
-#     if not token or not password:
-#         return {"error": "Missing token or password"}
+    if not token or not password:
+        return {"error": "Missing token or password"}
 
-#     response = dynamodb.get_item(
-#         TableName=VERIFICATION_TABLE,
-#         Key={"playerTag": {"S": playerTag}}
-#     )
-#     item = response.get("Item")
+    response = dynamodb.get_item(
+        TableName=VERIFICATION_TABLE,
+        Key={"playerTag": {"S": playerTag}}
+    )
+    item = response.get("Item")
 
-#     if not item or item["token"]["S"] != token:
-#         return {"error": "Invalid or missing verification"}
+    if not item or item["token"]["S"] != token:
+        return {"error": "Invalid or missing verification"}
 
-#     if int(item["verifiedSteps"]["N"]) < VERIFICATION_STEPS_REQUIRED:
-#         return {"error": "Not enough verification steps"}
+    if int(item["verifiedSteps"]["N"]) < VERIFICATION_STEPS_REQUIRED:
+        return {"error": "Not enough verification steps"}
 
-#     if int(time.time()) - int(item["createdAt"]["N"]) > TOKEN_EXPIRY_SECONDS:
-#         return {"error": "Token expired"}
+    if int(time.time()) - int(item["createdAt"]["N"]) > TOKEN_EXPIRY_SECONDS:
+        return {"error": "Token expired"}
 
-#     hashedPassword = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    hashedPassword = pbkdf2_sha256.hash(password)
 
-#     # Store the password in the final table
-#     dynamodb.update_item(
-#         TableName=PLAYER_INFO_TABLE,
-#         Key={"playerTag": {"S": playerTag}},
-#         UpdateExpression="SET #pw = :pw",
-#         ExpressionAttributeNames={"#pw": "password"},
-#         ExpressionAttributeValues={":pw": {"S": hashedPassword}}
-#     )
+    # Store the password in the final table
+    dynamodb.update_item(
+        TableName=PLAYER_INFO_TABLE,
+        Key={"playerTag": {"S": playerTag}},
+        UpdateExpression="SET #pw = :pw",
+        ExpressionAttributeNames={"#pw": "password"},
+        ExpressionAttributeValues={":pw": {"S": hashedPassword}}
+    )
 
-#     # Remove old verification item
-#     dynamodb.delete_item(
-#         TableName=VERIFICATION_TABLE,
-#         Key={"playerTag": {"S": playerTag}}
-#     )
+    # Remove old verification item
+    dynamodb.delete_item(
+        TableName=VERIFICATION_TABLE,
+        Key={"playerTag": {"S": playerTag}}
+    )
 
-#     return {"success": True}
+    return {"success": True}
 
 
-# def handleLogin(playerTag, password, dynamodb):
-#     # Fetch user info from DynamoDB
-#     response = dynamodb.get_item(
-#         TableName=PLAYER_INFO_TABLE,
-#         Key={"playerTag": {"S": playerTag}},
-#         ProjectionExpression="#pw",
-#         ExpressionAttributeNames={"#pw": "password"}
-#     )
+def handleLogin(playerTag, password, dynamodb):
+    # Fetch user info from DynamoDB
+    response = dynamodb.get_item(
+        TableName=PLAYER_INFO_TABLE,
+        Key={"playerTag": {"S": playerTag}},
+        ProjectionExpression="#pw",
+        ExpressionAttributeNames={"#pw": "password"}
+    )
 
-#     item = response.get("Item")
-#     if not item or "password" not in item:
-#         return {"error": "Account not found or not verified"}
+    item = response.get("Item")
+    if not item or "password" not in item:
+        return {"error": "Account not found or not verified"}
 
-#     hashedPassword = item["password"]["S"]
+    hashedPassword = item["password"]["S"]
 
-#     # Verify password
-#     if not bcrypt.checkpw(password.encode(), hashedPassword.encode()):
-#         return {"error": "Incorrect password"}
+    # Verify password
+    if not pbkdf2_sha256.verify(password, hashedPassword):
+        return {"error": "Incorrect password"}
 
-#     # Create JWT token
-#     payload = {
-#         "playerTag": playerTag,
-#         "exp": int(time.time()) + 3600  # 1 hour expiration
-#     }
+    # Create JWT token
+    payload = {
+        "playerTag": playerTag,
+        "exp": int(time.time()) + 3600  # 1 hour expiration
+    }
 
-#     token = jwt.encode(payload, getSecret("JWT_SECRET"), algorithm="HS256")
+    token = jwt.encode(payload, getSecret("JWT_SECRET"), algorithm="HS256")
 
-#     return {
-#         "token": token
-#     }
+    return {
+        "token": token
+    }
 
 def verifyToken(token):
     try:
