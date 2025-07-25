@@ -3,13 +3,14 @@ import time
 import bcrypt
 import random
 import jwt
+from DatabaseUtility.secretsUtility import getSecret
 from apiUtility import getApiPlayerIconID
 
 VERIFICATION_TABLE = "BrawlStarsAccountVerification"
 PLAYER_INFO_TABLE = "BrawlStarsPlayersInfo"
 
 VERIFICATION_STEPS_REQUIRED = 2
-TOKEN_EXPIRY_SECONDS = 15 * 60  # 15 minutes
+TOKEN_EXPIRY_SECONDS = 15 * 60
 
 NUM_VERIFICATIONS_REQUIRED = 3
 
@@ -36,23 +37,22 @@ def getRandomIconID(idToExclude=None):
 
 
 def handleAccountVerificationRequest(eventBody, dynamodb):
-    request_type = eventBody.get("verificationRequestType")
+    verificationType = eventBody.get("verificationRequestType")
     playerTag = eventBody.get("playerTag")
 
-    if not playerTag or not request_type:
+    if not playerTag or not verificationType:
         return {"error": "Missing tag or verificationRequestType"}
 
     playerTag = playerTag.upper().replace("O", "0")
 
-    if request_type == "initiate":
+    if verificationType == "initiate":
         return handleInitiateVerification(playerTag, dynamodb)
-    elif request_type == "verifyStep":
+    elif verificationType == "verifyStep":
         return handleVerifyStep(playerTag, eventBody, dynamodb)
-    elif request_type == "finalize":
+    elif verificationType == "finalize":
         return handleFinalize(playerTag, eventBody, dynamodb)
     else:
         return {"error": "Invalid verificationRequestType"}
-
 
 def handleInitiateVerification(playerTag, dynamodb):
     token = str(uuid.uuid4())
@@ -74,7 +74,6 @@ def handleInitiateVerification(playerTag, dynamodb):
         "token": token,
         "iconIdToSet": iconID
     }
-
 
 def handleVerifyStep(playerTag, eventBody, dynamodb):
     token = eventBody.get("token")
@@ -129,7 +128,6 @@ def handleVerifyStep(playerTag, eventBody, dynamodb):
             "newIconIdToSet": newIconID
         }
 
-
 def handleFinalize(playerTag, eventBody, dynamodb):
     token = eventBody.get("token")
     password = eventBody.get("password")
@@ -171,7 +169,7 @@ def handleFinalize(playerTag, eventBody, dynamodb):
 
     return {"success": True}
 
-SECRET = "temporary-secret"
+
 def handleLogin(playerTag, password, dynamodb):
     # Fetch user info from DynamoDB
     response = dynamodb.get_item(
@@ -197,7 +195,7 @@ def handleLogin(playerTag, password, dynamodb):
         "exp": int(time.time()) + 3600  # 1 hour expiration
     }
 
-    token = jwt.encode(payload, SECRET, algorithm="HS256")
+    token = jwt.encode(payload, getSecret("JWT_SECRET"), algorithm="HS256")
 
     return {
         "token": token
@@ -205,7 +203,7 @@ def handleLogin(playerTag, password, dynamodb):
 
 def verifyToken(token):
     try:
-        payload = jwt.decode(token, SECRET, algorithms=["HS256"])
+        payload = jwt.decode(token, getSecret("JWT_SECRET"), algorithms=["HS256"])
         return payload["playerTag"]
     except jwt.ExpiredSignatureError:
         return None  # expired

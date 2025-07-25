@@ -1,5 +1,6 @@
 import json
 import boto3
+from DatabaseUtility.accountVerificationUtility import handleAccountVerificationRequest
 from DatabaseUtility.gamesUtility import queryGames
 from DatabaseUtility.itemUtility import decimalAndSetSerializer, deserializeDynamoDbItem
 from DatabaseUtility.playerUtility import beginTrackingPlayer, compileUncachedStats, getPlayerInfo, updateStatsLastAccessed
@@ -189,6 +190,9 @@ def lambda_handler(event, context):
             'headers': CORS_HEADERS
         }
     
+    elif eventBody['type'] == 'verifyAccount':
+        handleAccountVerificationRequest(eventBody, dynamodb)
+
     else:
         return {
             'statusCode': 400,
