@@ -35,6 +35,11 @@ def getApiProxyRecentGames(playerTag):
 
     return requestApiProxy(endpoint).get("items", [])
 
+def getApiProxyPlayerIconID(playerTag):
+    playerInfo = getApiProxyPlayerInfo(playerTag)
+
+    return playerInfo["icon"]["id"]
+
 # Pure Api Functions:
 def getApiRecentGames(playerTag, doErrorPrinting=True):
 

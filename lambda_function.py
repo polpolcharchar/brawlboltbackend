@@ -194,7 +194,12 @@ def lambda_handler(event, context):
         }
     
     elif eventBody['type'] == 'verifyAccount':
-        handleAccountVerificationRequest(eventBody, dynamodb)
+        verificationResult = handleAccountVerificationRequest(eventBody, dynamodb)
+        return {
+            'statusCode': 200,
+            'body': json.dumps(verificationResult),
+            'headers': CORS_HEADERS
+        }
 
     else:
         return {

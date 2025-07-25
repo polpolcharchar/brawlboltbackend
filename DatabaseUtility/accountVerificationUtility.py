@@ -4,7 +4,7 @@ from passlib.hash import pbkdf2_sha256
 import random
 import jwt
 from DatabaseUtility.secretsUtility import getSecret
-from apiUtility import getApiPlayerIconID
+from apiUtility import getApiPlayerIconID, getApiProxyPlayerIconID
 
 VERIFICATION_TABLE = "BrawlStarsAccountVerification"
 PLAYER_INFO_TABLE = "BrawlStarsPlayersInfo"
@@ -96,7 +96,7 @@ def handleVerifyStep(playerTag, eventBody, dynamodb):
         return {"error": "Token expired"}
 
     expectedIconID = int(item["iconIdToSet"]["N"])
-    actualIconID = getApiPlayerIconID(playerTag)  # Needs to be replaced by proxy after testing!!!
+    actualIconID = getApiProxyPlayerIconID(playerTag)
 
     if actualIconID != expectedIconID:
         return {"error": "Icon does not match"}
