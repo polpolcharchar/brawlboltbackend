@@ -9,10 +9,8 @@ from apiUtility import getApiPlayerIconID, getApiProxyPlayerIconID
 VERIFICATION_TABLE = "BrawlStarsAccountVerification"
 PLAYER_INFO_TABLE = "BrawlStarsPlayersInfo"
 
-VERIFICATION_STEPS_REQUIRED = 2
+NUM_VERIFICATIONS_REQUIRED = 2
 TOKEN_EXPIRY_SECONDS = 15 * 60
-
-NUM_VERIFICATIONS_REQUIRED = 3
 
 BRAWLER_ICON_IDS = [
     28000003,  # Shelly
@@ -49,8 +47,8 @@ def handleAccountVerificationRequest(eventBody, dynamodb):
         return handleInitiateVerification(playerTag, dynamodb)
     elif verificationType == "verifyStep":
         return handleVerifyStep(playerTag, eventBody, dynamodb)
-    # elif verificationType == "finalize":
-    #     return handleFinalize(playerTag, eventBody, dynamodb)
+    elif verificationType == "finalize":
+        return handleFinalize(playerTag, eventBody, dynamodb)
     else:
         return {"error": "Invalid verificationRequestType"}
 
@@ -119,12 +117,12 @@ def handleVerifyStep(playerTag, eventBody, dynamodb):
 
     if numVerifiedSteps >= NUM_VERIFICATIONS_REQUIRED:
         return {
-            "verifiedSteps": numVerifiedSteps,
+            "verificationsRemaining": NUM_VERIFICATIONS_REQUIRED - numVerifiedSteps,
             "readyForPassword": True
         }
     else:
         return {
-            "verifiedSteps": numVerifiedSteps,
+            "verificationsRemaining": NUM_VERIFICATIONS_REQUIRED - numVerifiedSteps,
             "newIconIdToSet": newIconID
         }
 
@@ -144,7 +142,7 @@ def handleFinalize(playerTag, eventBody, dynamodb):
     if not item or item["token"]["S"] != token:
         return {"error": "Invalid or missing verification"}
 
-    if int(item["verifiedSteps"]["N"]) < VERIFICATION_STEPS_REQUIRED:
+    if int(item["verifiedSteps"]["N"]) < NUM_VERIFICATIONS_REQUIRED:
         return {"error": "Not enough verification steps"}
 
     if int(time.time()) - int(item["createdAt"]["N"]) > TOKEN_EXPIRY_SECONDS:
