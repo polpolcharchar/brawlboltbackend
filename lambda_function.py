@@ -187,6 +187,8 @@ def lambda_handler(event, context):
             "playerInfo": {"name": response["Items"][0]["username"]["S"]},
         }
 
+        resultBody["verified"] = "password" in response["Items"][0]
+
         return {
             'statusCode': 200,
             'body': json.dumps(resultBody),
