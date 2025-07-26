@@ -190,7 +190,7 @@ def handleLogin(playerTag, password, dynamodb):
     # Create JWT token
     payload = {
         "playerTag": playerTag,
-        "exp": int(time.time()) + 3600  # 1 hour expiration
+        "exp": int(time.time()) + 60 * 60 * 4 # 4 hours
     }
 
     token = jwt.encode(payload, getSecret("JWT_SECRET"), algorithm="HS256")

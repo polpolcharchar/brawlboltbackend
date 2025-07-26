@@ -1,6 +1,6 @@
 import json
 import boto3
-from DatabaseUtility.accountVerificationUtility import handleAccountVerificationRequest
+from DatabaseUtility.accountVerificationUtility import handleAccountVerificationRequest, handleLogin
 from DatabaseUtility.gamesUtility import queryGames
 from DatabaseUtility.itemUtility import decimalAndSetSerializer, deserializeDynamoDbItem
 from DatabaseUtility.playerUtility import beginTrackingPlayer, compileUncachedStats, getPlayerInfo, updateStatsLastAccessed
@@ -198,6 +198,14 @@ def lambda_handler(event, context):
         return {
             'statusCode': 200,
             'body': json.dumps(verificationResult),
+            'headers': CORS_HEADERS
+        }
+
+    elif eventBody['type'] == 'verifyPassword':
+        passwordVerificationResult = handleLogin(eventBody['playerTag'].upper(), eventBody['password'], dynamodb)
+        return {
+            'statusCode': 200,
+            'body': json.dumps(passwordVerificationResult),
             'headers': CORS_HEADERS
         }
 
