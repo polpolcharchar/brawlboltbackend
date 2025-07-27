@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta
-from DatabaseUtility.trieUtility import getMatchDataObjectsFromGame, updateDatabaseTrie
+from DatabaseUtility.modeToMapOverrideUtility import getMode
+from DatabaseUtility.trieUtility import fetchTrieData, getMatchDataObjectsFromGame, updateDatabaseTrie
 from apiUtility import getApiProxyPlayerInfo
-from DatabaseUtility.gamesUtility import batchWriteGamesToDynamodb, getAllUncachedGames, saveRecentGames
+from DatabaseUtility.gamesUtility import batchWriteGamesToDynamodb, getAllUncachedGames, getBrawlers, getMostRecentGames, saveRecentGames
 from DatabaseUtility.itemUtility import deserializeDynamoDbItem, prepareItem
 
 PLAYER_INFO_TABLE = 'BrawlStarsPlayersInfo'
@@ -140,3 +141,76 @@ def getPlayerInfo(playerTag, dynamodb):
             ':playerTag': {'S': playerTag},
         },
     )
+
+def getPlayerOverview(playerTag, dynamodb):
+    
+    # Get most recent 10 games
+    rawRecentGames = getMostRecentGames(playerTag, 10, dynamodb)
+
+    parsedRecentGames = []
+    for game in rawRecentGames:
+        deserializedGame = deserializeDynamoDbItem(game)
+
+        parsedGame = {
+            "mode": getMode(deserializedGame),
+            "type": deserializedGame["battle"]["type"],
+            "brawlers": getBrawlers(deserializedGame, playerTag)
+        }
+        if "result" in deserializedGame["battle"]:
+            parsedGame["result"] = deserializedGame["battle"]["result"]
+        if "rank" in deserializedGame["battle"]:
+            parsedGame["rank"] = deserializedGame["battle"]["rank"]
+        
+        parsedRecentGames.append(parsedGame)
+
+    # Get favorite brawlers + winrates
+    brawlerTrieResult = fetchTrieData(playerTag, "overall", "regular", None, None, None, "brawler", False, dynamodb)["trieData"]
+    
+    brawlerRatesList = []
+    for brawlerNode in brawlerTrieResult:
+        brawler = brawlerNode["pathID"].split("$")[-1]
+
+        rateObject = {
+            "brawler": brawler,
+            "winrate": float(brawlerNode["resultCompiler"]["player_result_data"]["wins"] / brawlerNode["resultCompiler"]["player_result_data"]["potential_total"]).__round__(3),       
+            "numGames": float(brawlerNode["resultCompiler"]["player_result_data"]["potential_total"])
+        }
+        if brawlerNode["resultCompiler"]["player_star_data"]["potential_total"] > 0:
+            rateObject["starRate"] = float((
+                brawlerNode["resultCompiler"]["player_star_data"]["wins"] + 
+                brawlerNode["resultCompiler"]["player_star_data"]["draws"] + 
+                brawlerNode["resultCompiler"]["player_star_data"]["losses"]
+            ) / brawlerNode["resultCompiler"]["player_star_data"]["potential_total"]).__round__(3)
+
+        brawlerRatesList.append(rateObject)
+    
+    favoriteBrawlers = sorted(brawlerRatesList, key=lambda x: x["numGames"], reverse=True)[:10]
+
+    # Get favorite modes + winrates
+    modeTrieResult = fetchTrieData(playerTag, "overall", "regular", None, None, None, "mode", False, dynamodb)["trieData"]
+    
+    modeRatesList = []
+    for modeNode in modeTrieResult:
+        mode = modeNode["pathID"].split("$")[-1]
+
+        rateObject = {
+            "mode": mode,
+            "winrate": float(modeNode["resultCompiler"]["player_result_data"]["wins"] / modeNode["resultCompiler"]["player_result_data"]["potential_total"]).__round__(3),       
+            "numGames": float(modeNode["resultCompiler"]["player_result_data"]["potential_total"])
+        }
+        if modeNode["resultCompiler"]["player_star_data"]["potential_total"] > 0:
+            rateObject["starRate"] = float((
+                modeNode["resultCompiler"]["player_star_data"]["wins"] + 
+                modeNode["resultCompiler"]["player_star_data"]["draws"] + 
+                modeNode["resultCompiler"]["player_star_data"]["losses"]
+            ) / modeNode["resultCompiler"]["player_star_data"]["potential_total"]).__round__(3)
+
+        modeRatesList.append(rateObject)
+    
+    favoriteModes = sorted(modeRatesList, key=lambda x: x["numGames"], reverse=True)[:10]
+
+    return {
+        "parsedRecentGames": parsedRecentGames,
+        "favoriteBrawlers": favoriteBrawlers,
+        "favoriteModes": favoriteModes
+    }

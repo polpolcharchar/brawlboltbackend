@@ -66,17 +66,17 @@ def getAllUncachedGames(playerTag, dynamodb):
 
     return games
 
-def getMostRecentGame(playerTag, dynamodb):
+def getMostRecentGames(playerTag, numGames, dynamodb):
     response = dynamodb.query(
         TableName=GAMES_TABLE_NAME,
         KeyConditionExpression="playerTag = :playerTag",
         ExpressionAttributeValues={":playerTag": {"S": playerTag}},
-        Limit=1,
+        Limit=numGames,
         ScanIndexForward=False
     )
 
     if response.get('Items'):
-        return response['Items'][0]
+        return response['Items']
     else:
         return None
 
@@ -86,7 +86,7 @@ def saveRecentGames(playerTag, dynamodb):
     if recentApiGames is None:
         recentApiGames = []
     
-    mostRecentCachedGame = getMostRecentGame(playerTag, dynamodb)
+    mostRecentCachedGame = getMostRecentGames(playerTag, 1, dynamodb)[0]
     mostRecentGameTime = mostRecentCachedGame["battleTime"]["S"] if mostRecentCachedGame else None
 
     newGames = [
@@ -139,3 +139,27 @@ def queryGames(player_tag: str, battle_time: str, num_before: int, num_after: in
             resultGames.append(deserializeDynamoDbItem(game))
 
     return resultGames
+
+def getBrawlers(game, playerTag):
+    tagWithHash = "#" + playerTag
+
+    targetPlayer = None
+    if "players" in game["battle"]:
+        for player in game["battle"]["players"]:
+            if player["tag"] == tagWithHash:
+                targetPlayer = player
+                break
+    elif "teams" in game["battle"]:
+        for team in game["battle"]["teams"]:
+            for player in team:
+                if player["tag"] == tagWithHash:
+                    targetPlayer = player
+                    break
+    
+    if targetPlayer is None:
+        return None
+    
+    if "brawler" in targetPlayer:
+        return [targetPlayer["brawler"]["name"]]
+    else:
+        return [brawler["name"] for brawler in targetPlayer["brawlers"]]

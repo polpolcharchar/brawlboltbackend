@@ -3,7 +3,7 @@ import boto3
 from DatabaseUtility.accountVerificationUtility import handleAccountVerificationRequest, handleLogin, verifyToken
 from DatabaseUtility.gamesUtility import queryGames
 from DatabaseUtility.itemUtility import decimalAndSetSerializer, deserializeDynamoDbItem
-from DatabaseUtility.playerUtility import beginTrackingPlayer, compileUncachedStats, getPlayerInfo, updateStatsLastAccessed
+from DatabaseUtility.playerUtility import beginTrackingPlayer, compileUncachedStats, getPlayerInfo, getPlayerOverview, updateStatsLastAccessed
 from DatabaseUtility.trieUtility import BRAWL_TRIE_TABLE, fetchTrieData, fetchRecentTrieData
 
 CORS_HEADERS = {
@@ -211,6 +211,17 @@ def lambda_handler(event, context):
             'headers': CORS_HEADERS
         }
     
+    elif eventBody['type'] == 'getPlayerOverview':
+        playerTag = eventBody["playerTag"].upper()
+
+        overview = getPlayerOverview(playerTag, dynamodb)
+
+        return {
+            'statusCode': 200,
+            'body': json.dumps(overview, default=lambda x: decimalAndSetSerializer(x)),
+            'headers': CORS_HEADERS
+        }
+
     elif eventBody['type'] == 'verifyAccount':
         verificationResult = handleAccountVerificationRequest(eventBody, dynamodb)
         return {

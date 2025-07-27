@@ -1,12 +1,12 @@
 import boto3
-from DatabaseUtility.gamesUtility import GAMES_TABLE_NAME, getMostRecentGame
+from DatabaseUtility.gamesUtility import GAMES_TABLE_NAME, getMostRecentGames
 from DatabaseUtility.itemUtility import batchWriteToDynamoDB, prepareItem
 from DatabaseUtility.playerUtility import getAllPlayerTagsSetInRecentDays
 from apiUtility import getApiRecentGames
 from datetime import datetime
 
 def trackRecentUniqueGames(playerTag, dynamodb):
-    mostRecentGame = getMostRecentGame(playerTag, dynamodb)
+    mostRecentGame = getMostRecentGames(playerTag, 1, dynamodb)[0]
     mostRecentBattleTime = mostRecentGame["battleTime"]["S"] if mostRecentGame else None
 
     recentGames = getApiRecentGames(playerTag, False)
