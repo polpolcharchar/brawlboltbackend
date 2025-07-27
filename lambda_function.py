@@ -1,6 +1,6 @@
 import json
 import boto3
-from DatabaseUtility.accountVerificationUtility import handleAccountVerificationRequest, handleLogin
+from DatabaseUtility.accountVerificationUtility import handleAccountVerificationRequest, handleLogin, verifyToken
 from DatabaseUtility.gamesUtility import queryGames
 from DatabaseUtility.itemUtility import decimalAndSetSerializer, deserializeDynamoDbItem
 from DatabaseUtility.playerUtility import beginTrackingPlayer, compileUncachedStats, getPlayerInfo, updateStatsLastAccessed
@@ -58,10 +58,26 @@ def lambda_handler(event, context):
         }
 
     elif eventBody['type'] == 'queryGames':
-        playerTag = eventBody['playerTag']
+        playerTag = eventBody['playerTag'].upper()
         targetDatetime = eventBody['datetime']
         numBefore = eventBody.get('numBefore', 0)
         numAfter = eventBody.get('numAfter', 0)
+
+        if not "token" in eventBody:
+            return {
+                "statusCode": 400,
+                "body": json.dumps({ "error": "Missing token" }),
+                'headers': CORS_HEADERS
+            }
+        
+        token = eventBody['token']
+        verificationResult = verifyToken(token)
+        if not verificationResult or verificationResult != playerTag:
+            return {
+                "statusCode": 401,
+                "body": json.dumps({ "error": "Invalid or expired token" }),
+                'headers': CORS_HEADERS
+            }
 
         games = queryGames(playerTag, targetDatetime, numBefore, numAfter, dynamodb)
 
