@@ -1,7 +1,7 @@
 import math
 
 from CompilerStructuresModule.CompilerStructures.matchData import MatchData
-from CompilerStructuresModule.CompilerStructures.playerResultCompiler import PlayerResultCompiler
+from CompilerStructuresModule.CompilerStructures.resultCompiler import ResultCompiler
 from DatabaseUtility.itemUtility import batch_get_all_items, deserializeDynamoDbItem, prepareItem
 from DatabaseUtility.modeToMapOverrideUtility import getMode
 
@@ -121,7 +121,7 @@ def updateDatabaseTrie(basePath, matchDataObjects, filterID, dynamodb, isGlobal,
 
     def addPath(pathID, childrenPathIDs, dynamodb):
 
-        baseCompiler = PlayerResultCompiler().to_dict()
+        baseCompiler = ResultCompiler().to_dict()
 
         # Prevent Self Reference
         if pathID in childrenPathIDs:
@@ -253,7 +253,7 @@ def getCompilersToUpdate(matchDataObjects, basePath, isGlobal):
 
         for id in idsToUpdate:
             if id not in pathIDUpdates:
-                pathIDUpdates[id] = PlayerResultCompiler()
+                pathIDUpdates[id] = ResultCompiler()
             
             pathIDUpdates[id].handle_battle_result(matchData)
     
