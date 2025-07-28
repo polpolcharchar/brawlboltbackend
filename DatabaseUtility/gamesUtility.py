@@ -86,8 +86,8 @@ def saveRecentGames(playerTag, dynamodb):
     if recentApiGames is None:
         recentApiGames = []
     
-    mostRecentCachedGame = getMostRecentGames(playerTag, 1, dynamodb)[0]
-    mostRecentGameTime = mostRecentCachedGame["battleTime"]["S"] if mostRecentCachedGame else None
+    mostRecentCachedGame = getMostRecentGames(playerTag, 1, dynamodb)
+    mostRecentGameTime = mostRecentCachedGame[0]["battleTime"]["S"] if (mostRecentCachedGame and len(mostRecentCachedGame) > 0) else None
 
     newGames = [
         game for game in recentApiGames
