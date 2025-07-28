@@ -147,6 +147,10 @@ def getPlayerOverview(playerTag, dynamodb):
     # Get most recent 10 games
     rawRecentGames = getMostRecentGames(playerTag, 10, dynamodb)
 
+    lastSeenString = rawRecentGames[0]["battleTime"]["S"]
+    lastSeen = datetime.strptime(lastSeenString, "%Y%m%dT%H%M%S.%fZ")
+    daysSinceLastSeen = max(0, int((datetime.now() - lastSeen).days))
+
     parsedRecentGames = []
     for game in rawRecentGames:
         deserializedGame = deserializeDynamoDbItem(game)
@@ -212,5 +216,6 @@ def getPlayerOverview(playerTag, dynamodb):
     return {
         "parsedRecentGames": parsedRecentGames,
         "favoriteBrawlers": favoriteBrawlers,
-        "favoriteModes": favoriteModes
+        "favoriteModes": favoriteModes,
+        "daysSinceLastSeen": daysSinceLastSeen
     }
