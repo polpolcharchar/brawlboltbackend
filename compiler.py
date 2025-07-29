@@ -4,7 +4,6 @@ from datetime import datetime
 from DatabaseUtility.playerUtility import compileUncachedStats, getAllPlayerTagsSet
 
 
-# Initialize DynamoDB client
 DYNAMODB_REGION = 'us-west-1'
 dynamodb = boto3.client("dynamodb", region_name=DYNAMODB_REGION)
 

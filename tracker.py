@@ -1,13 +1,13 @@
 import boto3
-from DatabaseUtility.gamesUtility import GAMES_TABLE_NAME, getMostRecentGames
-from DatabaseUtility.itemUtility import batchWriteToDynamoDB, prepareItem
+from DatabaseUtility.gamesUtility import GAMES_TABLE_NAME, getMostRecentGamesFromDB
+from DatabaseUtility.itemUtility import batchWriteToDynamoDB, prepareItemForDB
 from DatabaseUtility.playerUtility import getAllPlayerTagsSetInRecentDays
 from apiUtility import getApiRecentGames
 from datetime import datetime
 
 def trackRecentUniqueGames(playerTag, dynamodb):
-    mostRecentGame = getMostRecentGames(playerTag, 1, dynamodb)[0]
-    mostRecentBattleTime = mostRecentGame["battleTime"]["S"] if mostRecentGame else None
+    mostRecentGame = getMostRecentGamesFromDB(playerTag, 1, dynamodb)
+    mostRecentBattleTime = mostRecentGame[0]["battleTime"]["S"] if (mostRecentGame and len(mostRecentGame) > 0) else None
 
     recentGames = getApiRecentGames(playerTag, False)
     if len(recentGames) == 0:
@@ -25,7 +25,7 @@ def trackRecentUniqueGames(playerTag, dynamodb):
         game["statsCached"] = False
         game["playerTag"] = playerTag
     
-    preparedGames = [prepareItem(game) for game in gamesYetToBeTracked]
+    preparedGames = [prepareItemForDB(game) for game in gamesYetToBeTracked]
 
     # Sometimes there are duplicate battle times, I don't know why
     seenBattleTimes = set()
@@ -45,7 +45,7 @@ if __name__ == "__main__":
     DYNAMODB_REGION = 'us-west-1'
     dynamodb = boto3.client("dynamodb", region_name=DYNAMODB_REGION)
 
-    playerTags = getAllPlayerTagsSetInRecentDays(dynamodb, numDays=60)
+    playerTags = getAllPlayerTagsSetInRecentDays(dynamodb, numDays=30)
 
     numGamesTracked = 0
     for playerTag in playerTags:

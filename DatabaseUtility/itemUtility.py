@@ -3,7 +3,7 @@ from boto3.dynamodb.types import TypeDeserializer
 
 deserializer = TypeDeserializer()
 
-def prepareItem(game):
+def prepareItemForDB(game):
     item = {}
     for key, value in game.items():
         item[key] = convertToDynamodbFormat(value)
@@ -64,7 +64,6 @@ def decimalAndSetSerializer(obj):
     return obj
 
 def batchWriteToDynamoDB(items, tableName, dynamodb):
-    """Write items to DynamoDB in batches."""
     try:
         # DynamoDB limits batch write to 25 items per request
         MAX_BATCH_SIZE = 25
@@ -89,7 +88,7 @@ def batchWriteToDynamoDB(items, tableName, dynamodb):
     except Exception as e:
         print(f"Error writing batch to DynamoDB: {e.response['Error']['Message']}")
 
-def batch_get_all_items(table_name, keys, dynamodb, projection_expression=None):
+def batchGetAllItems(table_name, keys, dynamodb, projection_expression=None):
     # AI
     request_items = {
         table_name: {

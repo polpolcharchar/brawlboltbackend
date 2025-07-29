@@ -41,6 +41,7 @@ def getApiProxyPlayerIconID(playerTag):
     return playerInfo["icon"]["id"]
 
 # Pure Api Functions:
+# Only used for local testing
 def getApiRecentGames(playerTag, doErrorPrinting=True):
 
     BRAWL_API_KEY = getSecret("BRAWL_API_KEY")

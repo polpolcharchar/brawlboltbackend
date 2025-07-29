@@ -2,7 +2,7 @@ import math
 
 from CompilerStructuresModule.CompilerStructures.matchData import MatchData
 from CompilerStructuresModule.CompilerStructures.resultCompiler import ResultCompiler
-from DatabaseUtility.itemUtility import batch_get_all_items, deserializeDynamoDbItem, prepareItem
+from DatabaseUtility.itemUtility import batchGetAllItems, deserializeDynamoDbItem, prepareItemForDB
 from DatabaseUtility.modeToMapOverrideUtility import getMode
 
 BRAWL_TRIE_TABLE = "BrawlStarsTrieData2"
@@ -132,7 +132,7 @@ def updateDatabaseTrie(basePath, matchDataObjects, filterID, dynamodb, isGlobal,
 
         dynamodb.put_item(
             TableName=BRAWL_TRIE_TABLE,
-            Item=prepareItem(newItem)
+            Item=prepareItemForDB(newItem)
         )
 
         # Reference what the parent should be
@@ -184,7 +184,7 @@ def updateDatabaseTrie(basePath, matchDataObjects, filterID, dynamodb, isGlobal,
 
     count = 0
 
-    # print(f"updating {len(pathIDUpdates)} paths, ", end="")
+    print(f"updating {len(pathIDUpdates)} paths, ", end="")
     for pathID, resultCompiler in pathIDUpdates.items():
         if updatePath(pathID, resultCompiler, dynamodb) and not skipToAddImmediately:
             pass
@@ -440,7 +440,7 @@ def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute,
             childrenPathIDs = fetchChildrenPaths(pathID, dynamodb)
 
             childrenPathIDKeys = [{"pathID": {"S": childPathID}, "filterID": {"S": filterID}} for childPathID in childrenPathIDs]
-            childrenItems = batch_get_all_items(BRAWL_TRIE_TABLE, childrenPathIDKeys, dynamodb, projection_expression="pathID, resultCompiler")
+            childrenItems = batchGetAllItems(BRAWL_TRIE_TABLE, childrenPathIDKeys, dynamodb, projection_expression="pathID, resultCompiler")
 
             deserializedResult = [deserializeDynamoDbItem(childItem) for childItem in childrenItems]
             return deserializedResult

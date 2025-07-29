@@ -4,7 +4,7 @@ from passlib.hash import pbkdf2_sha256
 import random
 import jwt
 from DatabaseUtility.secretsUtility import getSecret
-from apiUtility import getApiPlayerIconID, getApiProxyPlayerIconID
+from apiUtility import getApiProxyPlayerIconID
 
 VERIFICATION_TABLE = "BrawlStarsAccountVerification"
 PLAYER_INFO_TABLE = "BrawlStarsPlayersInfo"

@@ -1,4 +1,3 @@
-
 _mapToModeOverrides = {
     "Moonbark Meadow": "dodgeBrawl",
     "Rebound Ring": "dodgeBrawl",

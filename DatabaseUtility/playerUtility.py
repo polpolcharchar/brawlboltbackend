@@ -2,8 +2,8 @@ from datetime import datetime, timedelta
 from DatabaseUtility.modeToMapOverrideUtility import getMode
 from DatabaseUtility.trieUtility import fetchTrieData, getMatchDataObjectsFromGame, updateDatabaseTrie
 from apiUtility import getApiProxyPlayerInfo
-from DatabaseUtility.gamesUtility import batchWriteGamesToDynamodb, getAllUncachedGames, getBrawlers, getMostRecentGames, saveRecentGames
-from DatabaseUtility.itemUtility import deserializeDynamoDbItem, prepareItem
+from DatabaseUtility.gamesUtility import GAMES_TABLE_NAME, getAllUncachedGamesFromDB, getBrawlers, getMostRecentGamesFromDB, saveRecentGamesFromApiToDB
+from DatabaseUtility.itemUtility import batchWriteToDynamoDB, deserializeDynamoDbItem, prepareItemForDB
 
 PLAYER_INFO_TABLE = 'BrawlStarsPlayersInfo'
 
@@ -67,7 +67,7 @@ def compileUncachedStats(playerTag, dynamodb):
     print(playerTag + ": ", end="")
 
     #Retrieve Games:
-    games = getAllUncachedGames(playerTag, dynamodb)
+    games = getAllUncachedGamesFromDB(playerTag, dynamodb)
     print(str(len(games)) + " uncached games, ", end="")
 
     if(len(games) == 0):
@@ -85,9 +85,9 @@ def compileUncachedStats(playerTag, dynamodb):
         game['statsCached'] = True
 
     #Update all games
-    preparedGames = [prepareItem(game) for game in games]
-    batchWriteGamesToDynamodb(preparedGames, dynamodb)
-    print(f"cached {len(preparedGames)} games, ", end="")
+    preparedGames = [prepareItemForDB(game) for game in games]
+    batchWriteToDynamoDB(preparedGames, GAMES_TABLE_NAME, dynamodb)
+    # print(f"cached {len(preparedGames)} games, ", end="")
 
     updateStatsLastCompiled("9CUCYLQP", dynamodb)
 
@@ -129,7 +129,7 @@ def beginTrackingPlayer(playerTag, dynamodb):
         },
     )
 
-    saveRecentGames(playerTag, dynamodb)
+    saveRecentGamesFromApiToDB(playerTag, dynamodb)
 
     return True
 
@@ -145,7 +145,7 @@ def getPlayerInfo(playerTag, dynamodb):
 def getPlayerOverview(playerTag, dynamodb):
     
     # Get most recent 10 games
-    rawRecentGames = getMostRecentGames(playerTag, 10, dynamodb)
+    rawRecentGames = getMostRecentGamesFromDB(playerTag, 10, dynamodb)
 
     lastSeenString = rawRecentGames[0]["battleTime"]["S"]
     lastSeen = datetime.strptime(lastSeenString, "%Y%m%dT%H%M%S.%fZ")
