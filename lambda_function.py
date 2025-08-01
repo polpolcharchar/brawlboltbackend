@@ -19,7 +19,29 @@ dynamodb = boto3.client("dynamodb", region_name=DYNAMODB_REGION)
 
 def lambda_handler(event, context):
 
-    eventBody = json.loads(event['body'])
+    # Check for browser visit
+    if 'body' not in event or event['body'] is None:
+        return {
+            "statusCode": 302,
+            "headers": {
+                "Location": "https://brawlbolt.com",
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'OPTIONS,POST',
+                'Access-Control-Allow-Headers': 'Content-Type',
+            },
+            "body": ""
+        }
+
+    # Parse JSON body safely
+    try:
+        eventBody = json.loads(event['body'])
+    except Exception:
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"error": "Invalid JSON body"}),
+            "headers": CORS_HEADERS
+        }
 
     if eventBody['type'] == "getRecentGlobalScanInfo":
 
