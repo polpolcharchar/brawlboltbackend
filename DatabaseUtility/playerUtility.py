@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from DatabaseUtility.modeToMapOverrideUtility import getMode
 from DatabaseUtility.trieUtility import fetchTrieData, getMatchDataObjectsFromGame, updateDatabaseTrie
 from apiUtility import getApiProxyPlayerInfo
-from DatabaseUtility.gamesUtility import GAMES_TABLE_NAME, getAllUncachedGamesFromDB, getBrawlers, getMostRecentGamesFromDB, saveRecentGamesFromApiToDB
+from DatabaseUtility.gamesUtility import GAMES_TABLE_NAME, getAllUncachedGamesFromDB, getBrawlers, getMostRecentGamesFromDB, removeGamesFromUncachedTable, saveGamesFromApiToUncachedDB
 from DatabaseUtility.itemUtility import batchWriteToDynamoDB, deserializeDynamoDbItem, prepareItemForDB
 
 PLAYER_INFO_TABLE = 'BrawlStarsPlayersInfo'
@@ -80,16 +80,14 @@ def compileUncachedStats(playerTag, dynamodb):
 
     updateDatabaseTrie(playerTag, matchDataObjects, "overall", dynamodb, False, False)
 
-    #set statsCached for every game to false
-    for game in games:
-        game['statsCached'] = True
+    # Remove from uncached table, add to cached table:
+    removeGamesFromUncachedTable(games, dynamodb)
 
-    #Update all games
     preparedGames = [prepareItemForDB(game) for game in games]
     batchWriteToDynamoDB(preparedGames, GAMES_TABLE_NAME, dynamodb)
     # print(f"cached {len(preparedGames)} games, ", end="")
 
-    updateStatsLastCompiled("9CUCYLQP", dynamodb)
+    updateStatsLastCompiled(playerTag, dynamodb)
 
     print("finished")
 
@@ -129,7 +127,7 @@ def beginTrackingPlayer(playerTag, dynamodb):
         },
     )
 
-    saveRecentGamesFromApiToDB(playerTag, dynamodb)
+    saveGamesFromApiToUncachedDB(playerTag, True, dynamodb)
 
     return True
 
@@ -145,7 +143,7 @@ def getPlayerInfo(playerTag, dynamodb):
 def getPlayerOverview(playerTag, dynamodb):
     
     # Get most recent 10 games
-    rawRecentGames = getMostRecentGamesFromDB(playerTag, 10, dynamodb)
+    rawRecentGames = getMostRecentGamesFromDB(playerTag, 10, False, dynamodb)
 
     lastSeenString = rawRecentGames[0]["battleTime"]["S"]
     lastSeen = datetime.strptime(lastSeenString, "%Y%m%dT%H%M%S.%fZ")

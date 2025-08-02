@@ -74,41 +74,28 @@ def updateDatabaseTrie(basePath, matchDataObjects, filterID, dynamodb, isGlobal,
 
             update_expr = "ADD " + ",\n    ".join(update_expr_parts)
 
-            # print("UpdateExpression:")
-            # print(update_expr)
-            # print("ExpressionAttributeValues:")
-            # print(expr_attr_values)
-            # print("ExpressionAttributeNames:")
-            # print(expr_attr_names)
-
             if len(expr_attr_names) > 0:
-                # Perform the update
                 dynamodb.update_item(
                     TableName=BRAWL_TRIE_TABLE,
                     Key={
                         "pathID": {"S": pathID},
                         "filterID": {"S": filterID}
                     },
-                    # ConditionExpression="attribute_exists(pathID)",
                     UpdateExpression=update_expr,
                     ExpressionAttributeValues=expr_attr_values,
                     ExpressionAttributeNames=expr_attr_names
                 )
             else:
-                # Perform the update
                 dynamodb.update_item(
                     TableName=BRAWL_TRIE_TABLE,
                     Key={
                         "pathID": {"S": pathID},
                         "filterID": {"S": filterID}
                     },
-                    # ConditionExpression="attribute_exists(pathID)",
                     UpdateExpression=update_expr,
                     ExpressionAttributeValues=expr_attr_values,
                 )
-
             return True
-
         except Exception as e:
             # print("Error during update:")
             # print(e)
