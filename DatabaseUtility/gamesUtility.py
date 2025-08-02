@@ -81,7 +81,7 @@ def getMostRecentSavedBattleTime(playerTag, dynamodb):
     return None
 
 def saveGamesFromApiToUncachedDB(playerTag, useProxy, dynamodb):
-    recentApiGames = getApiProxyRecentGames(playerTag) if useProxy else getApiRecentGames(playerTag)
+    recentApiGames = getApiProxyRecentGames(playerTag) if useProxy else getApiRecentGames(playerTag, False)
     if recentApiGames is None:
         return 0
 
