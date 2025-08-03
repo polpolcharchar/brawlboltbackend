@@ -78,12 +78,12 @@ In the previous section, six statistics to compile were established. These could
 
 It is easy to access these values for each game, and it isn't too difficult to calculate statistics for each brawler, or each mode. But more specificy is definitely needed. The winrates for a brawler will be very different between regular games and ranked games. Thus, it is necessary to access statistics for combinations of these attributes. Despite greatly increasing complexity, BrawlBolt compiles statistics for any combination of these attributes (except global statistics, which do not include map).
 
-### Statistic Format
+## BrawlBolt Account Verification
 
-It would be possible to store all possible combinations of attributes, but this would be very inefficient. Statistic values are only created for areas that apply to the player (wins for Spike are not tracked until a player has played Spike), and they are saved recursively. The [Game Attribute Trie](/CompilerStructuresModule/CompilerStructures/gameAttributeTrie.py) structure enables combinations of attributes. For player statistics, there are three recursive attribute paths: mode, map, brawler; brawler, mode, map; and mode, brawler. This means that it is possible to get statistics for any combination of mode, map, and brawler values.
+### Uses
 
-## Dependencies:
+With BrawlBolt tracking, every game an account plays is tracked. Only the account owner should be able to access this full record. Because of this, BrawlBolt requires users to prove they own an account to view its full match history.
 
-This repository relies on multiple Python dependencies. In most cases, it is assumed that these are present on the current machine. For AWS Lambda, dependencies are available using a [Lambda Layer](https://docs.aws.amazon.com/lambda/latest/dg/chapter-layers.html). As of now, the dependencies are available in [requirements.txt](requirements.txt) and listed here:
-- [Boto3](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html)
-- [requests](https://pypi.org/project/requests/)
+### Logic
+
+BrawlBolt uses the public icon id of a Brawl Stars account to verify ownership. An account's icon is useful because it can be easily changed by only the owner of the account. To verify accounts, BrawlBolt sends the client a target icon to switch to. The user can then switch their Brawl Stars icon to what is being requested. When BrawlBolt observes the correct change, the user can be trusted. This process is repeated for security.
