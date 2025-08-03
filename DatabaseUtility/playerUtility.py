@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
+from CompilerStructuresModule.CompilerStructures.matchData import getMatchDataObjectsFromGame
 from DatabaseUtility.modeToMapOverrideUtility import getMode
-from DatabaseUtility.trieUtility import fetchTrieData, getMatchDataObjectsFromGame, updateDatabaseTrie
+from DatabaseUtility.trieUtility import fetchTrieData, updateDatabaseTrie
 from apiUtility import getApiProxyPlayerInfo
 from DatabaseUtility.gamesUtility import GAMES_TABLE_NAME, getAllUncachedGamesFromDB, getBrawlers, getMostRecentGamesFromDB, removeGamesFromUncachedTable, saveGamesFromApiToUncachedDB
 from DatabaseUtility.itemUtility import batchWriteToDynamoDB, deserializeDynamoDbItem, prepareItemForDB
