@@ -16,9 +16,9 @@ def getTrieNodeItem(resultCompilerJSON, pathID, filterID, childrenPathIDs):
     return item
 
 # Updating with game data:
-def updateDatabaseTrie(basePath, matchDataObjects, filterID, dynamodb, isGlobal, skipToAddImmediately=False):
-
-    pathIDUpdates = getCompilersToUpdate(matchDataObjects, basePath, isGlobal)
+def updateDatabaseTrie(basePath, matchDataObjects, filterID, dynamodb, isGlobal, skipToAddImmediately=False, pathIDUpdates=None):
+    if pathIDUpdates is None:
+        pathIDUpdates = getCompilersToUpdate(matchDataObjects, basePath, isGlobal)
 
     def updatePath(pathID, resultCompiler, dynamodb):
         try:
@@ -167,7 +167,7 @@ def updateDatabaseTrie(basePath, matchDataObjects, filterID, dynamodb, isGlobal,
 
     count = 0
 
-    print(f"updating {len(pathIDUpdates)} paths, ", end="")
+    print(f"updating {len(pathIDUpdates)} paths, ")#, end="")
     for pathID, resultCompiler in pathIDUpdates.items():
         if updatePath(pathID, resultCompiler, dynamodb) and not skipToAddImmediately:
             pass
@@ -227,10 +227,8 @@ def getPathIDsToUpdate(matchData, basePath, isGlobal):
 
     return result
 
-def getCompilersToUpdate(matchDataObjects, basePath, isGlobal):
+def getCompilersToUpdate(matchDataObjects, basePath, isGlobal, pathIDUpdates={}):
     # Compile all of the matchDataObjects into a list of ResultCompilers that correspond to pathIDs
-
-    pathIDUpdates = {}
     for matchData in matchDataObjects:
         idsToUpdate = getPathIDsToUpdate(matchData, basePath, isGlobal)
 
@@ -241,7 +239,6 @@ def getCompilersToUpdate(matchDataObjects, basePath, isGlobal):
             pathIDUpdates[id].handle_battle_result(matchData)
     
     return pathIDUpdates
-
 
 # Fetching:
 def fetchTrieData(basePath, filterID, type, mode, map, brawler, targetAttribute, isGlobal, dynamodb):    
