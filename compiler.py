@@ -1,6 +1,7 @@
 import boto3
 from datetime import datetime
 
+from DatabaseUtility.capacityHandler import printCapacities
 from DatabaseUtility.playerUtility import compileUncachedStats, getAllPlayerTagsSet
 
 
@@ -11,8 +12,11 @@ if __name__ == "__main__":
     print("Beginning Compilation at " + str(datetime.now()))
 
     playerTagSet = getAllPlayerTagsSet(dynamodb)
+    playerTagSet = ["PC8C8V8Q0"]
 
     for player in playerTagSet:
         compileUncachedStats(player, dynamodb)
+
+    printCapacities()
 
     print()

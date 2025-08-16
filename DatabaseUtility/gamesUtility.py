@@ -1,3 +1,4 @@
+from DatabaseUtility.capacityHandler import handleCapacity
 from apiUtility import getApiProxyRecentGames, getApiRecentGames
 from DatabaseUtility.itemUtility import batchWriteToDynamoDB, deserializeDynamoDbItem, prepareItemForDB
 
@@ -14,7 +15,9 @@ def getAllUncachedGamesFromDB(playerTag, dynamodb):
         ExpressionAttributeValues={
             ":playerTag": {"S": playerTag}
         },
+        ReturnConsumedCapacity='TOTAL'
     )
+    handleCapacity(response, "getAllUncachedGamesFromDB")
 
     for item in response.get('Items', []):
         games.append(deserializeDynamoDbItem(item))
@@ -28,7 +31,9 @@ def getAllUncachedGamesFromDB(playerTag, dynamodb):
                 ":playerTag": {"S": playerTag}
             },
             ExclusiveStartKey=response['LastEvaluatedKey'],
+            ReturnConsumedCapacity='TOTAL'
         )
+        handleCapacity(response, "getAllUncachedGamesFromDB")
         for item in response.get('Items', []):
             games.append(deserializeDynamoDbItem(item))
 
@@ -49,11 +54,15 @@ def removeGamesFromUncachedTable(games, dynamodb):
     # Send requets in batches
     for i in range(0, len(deleteRequests), 25):
         batch = {UNCACHED_GAMES_TABLE_NAME: deleteRequests[i:i+25]}
-        response = dynamodb.batch_write_item(RequestItems=batch)
+        response = dynamodb.batch_write_item(RequestItems=batch, ReturnConsumedCapacity='TOTAL')
+        # handleCapacity(response, "removeGamesFromUncachedTable")
+        print(response)
 
         # Retry unprocessed items
         while response.get("UnprocessedItems", {}):
-            response = dynamodb.batch_write_item(RequestItems=response["UnprocessedItems"])
+            response = dynamodb.batch_write_item(RequestItems=response["UnprocessedItems"], ReturnConsumedCapacity='TOTAL')
+            # handleCapacity(response, "removeGamesFromUncachedTable")
+            print(response)
 
 def getMostRecentGamesFromDB(playerTag, numGames, useUncachedTable, dynamodb):
     response = dynamodb.query(

@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from CompilerStructuresModule.CompilerStructures.matchData import getMatchDataObjectsFromGame
+from DatabaseUtility.capacityHandler import handleCapacity
 from DatabaseUtility.modeToMapOverrideUtility import getMode
 from DatabaseUtility.trieUtility import fetchTrieData, updateDatabaseTrie
 from apiUtility import getApiProxyPlayerInfo
@@ -14,7 +15,9 @@ def getAllPlayerTagsSet(dynamodb):
 
     response = dynamodb.scan(
         TableName=PLAYER_INFO_TABLE,
+        ReturnConsumedCapacity='TOTAL'
     )
+    handleCapacity(response, "getAllPlayerTagsSet")
 
     # Collect playerTags from the response
     for item in response.get('Items', []):
@@ -25,7 +28,9 @@ def getAllPlayerTagsSet(dynamodb):
         response = dynamodb.scan(
             TableName=PLAYER_INFO_TABLE,
             ExclusiveStartKey=response['LastEvaluatedKey'],
+            ReturnConsumedCapacity='TOTAL'
         )
+        handleCapacity(response, "getAllPlayerTagsSet")
         for item in response.get('Items', []):
             playersInfo.append(deserializeDynamoDbItem(item))
     
@@ -93,12 +98,14 @@ def compileUncachedStats(playerTag, dynamodb):
     print("finished")
 
 def updateStatsLastCompiled(playerTag, dynamodb):
-    dynamodb.update_item(
+    response = dynamodb.update_item(
         TableName=PLAYER_INFO_TABLE,
         Key={"playerTag": {"S": playerTag}},
         UpdateExpression="SET statsLastCompiled = :statsLastCompiled",
-        ExpressionAttributeValues={":statsLastCompiled": {"S": datetime.now().isoformat()}}
+        ExpressionAttributeValues={":statsLastCompiled": {"S": datetime.now().isoformat()}},
+        ReturnConsumedCapacity='TOTAL'
     )
+    handleCapacity(response, "updateStatsLastCompiled")
 
 def updateStatsLastAccessed(playerTag, dynamodb):
     dynamodb.update_item(

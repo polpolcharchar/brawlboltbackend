@@ -1,4 +1,5 @@
 from CompilerStructuresModule.CompilerStructures.resultCompiler import ResultCompiler
+from DatabaseUtility.capacityHandler import handleCapacity
 from DatabaseUtility.itemUtility import batchGetAllItems, deserializeDynamoDbItem, prepareItemForDB
 
 BRAWL_TRIE_TABLE = "BrawlStarsTrieData2"
@@ -71,7 +72,7 @@ def updateDatabaseTrie(basePath, matchDataObjects, filterID, dynamodb, isGlobal,
             update_expr = "ADD " + ",\n    ".join(update_expr_parts)
 
             if len(expr_attr_names) > 0:
-                dynamodb.update_item(
+                response = dynamodb.update_item(
                     TableName=BRAWL_TRIE_TABLE,
                     Key={
                         "pathID": {"S": pathID},
@@ -79,10 +80,12 @@ def updateDatabaseTrie(basePath, matchDataObjects, filterID, dynamodb, isGlobal,
                     },
                     UpdateExpression=update_expr,
                     ExpressionAttributeValues=expr_attr_values,
-                    ExpressionAttributeNames=expr_attr_names
+                    ExpressionAttributeNames=expr_attr_names,
+                    ReturnConsumedCapacity='TOTAL'
                 )
+                handleCapacity(response, "updatePath")
             else:
-                dynamodb.update_item(
+                response = dynamodb.update_item(
                     TableName=BRAWL_TRIE_TABLE,
                     Key={
                         "pathID": {"S": pathID},
@@ -90,7 +93,9 @@ def updateDatabaseTrie(basePath, matchDataObjects, filterID, dynamodb, isGlobal,
                     },
                     UpdateExpression=update_expr,
                     ExpressionAttributeValues=expr_attr_values,
+                    ReturnConsumedCapacity='TOTAL'
                 )
+                handleCapacity(response, "updatePath")
             return True
         except Exception as e:
             # print("Error during update:")
@@ -113,10 +118,12 @@ def updateDatabaseTrie(basePath, matchDataObjects, filterID, dynamodb, isGlobal,
 
         newItem = getTrieNodeItem(baseCompiler, pathID, filterID, childrenPathIDs)
 
-        dynamodb.put_item(
+        response = dynamodb.put_item(
             TableName=BRAWL_TRIE_TABLE,
-            Item=prepareItemForDB(newItem)
+            Item=prepareItemForDB(newItem),
+            ReturnConsumedCapacity='TOTAL'
         )
+        handleCapacity(response, "addPath")
 
         # Reference what the parent should be
         def getParentPath(pathID):
@@ -143,8 +150,9 @@ def updateDatabaseTrie(basePath, matchDataObjects, filterID, dynamodb, isGlobal,
                     ExpressionAttributeValues={
                         ":new_child": {"SS": [childPathID]},
                     },
-                    ReturnValues="UPDATED_NEW"
+                    ReturnConsumedCapacity='TOTAL'
                 )
+                handleCapacity(response, "addChildPathID")
                 # print("Successfully updated:", response["Attributes"]["childrenPathIDs"])
                 return True
             except Exception as e:

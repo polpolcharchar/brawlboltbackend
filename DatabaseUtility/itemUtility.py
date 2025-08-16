@@ -1,6 +1,8 @@
 from decimal import Decimal
 from boto3.dynamodb.types import TypeDeserializer
 
+from DatabaseUtility.capacityHandler import handleCapacity
+
 deserializer = TypeDeserializer()
 
 def prepareItemForDB(game):
@@ -77,14 +79,19 @@ def batchWriteToDynamoDB(items, tableName, dynamodb):
             }
 
             # Write batch to DynamoDB
-            response = dynamodb.batch_write_item(RequestItems=request_items)
+            response = dynamodb.batch_write_item(RequestItems=request_items, ReturnConsumedCapacity='TOTAL')
+            # handleCapacity(response, "batchWriteToDynamoDB")
+            print(response)
 
             # Check for unprocessed items
             while response.get("UnprocessedItems", {}):
                 print("Retrying unprocessed items...")
                 response = dynamodb.batch_write_item(
-                    RequestItems=response["UnprocessedItems"]
+                    RequestItems=response["UnprocessedItems"],
+                    ReturnConsumedCapacity='TOTAL'
                 )
+                # handleCapacity(response, "batchWriteToDynamoDB")
+                print(response)
     except Exception as e:
         print(f"Error writing batch to DynamoDB: {e.response['Error']['Message']}")
 
