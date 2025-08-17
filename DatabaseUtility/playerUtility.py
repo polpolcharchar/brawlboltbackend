@@ -79,7 +79,7 @@ def compileUncachedStats(playerTag, dynamodb):
     for game in games:
         matchDataObjects.extend(getMatchDataObjectsFromGame(game, "#" + playerTag, False))
 
-    updateDatabaseTrie(playerTag, matchDataObjects, "overall", dynamodb, False, False)
+    updateDatabaseTrie(playerTag, matchDataObjects, "overall", dynamodb, False, None, False)
 
     # Remove from uncached table, add to cached table:
     removeGamesFromUncachedTable(games, dynamodb)

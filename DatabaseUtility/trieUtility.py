@@ -1,7 +1,7 @@
 from CompilerStructuresModule.CompilerStructures.resultCompiler import ResultCompiler
 from DatabaseUtility.itemUtility import batchGetAllItems, deserializeDynamoDbItem, prepareItemForDB
 
-BRAWL_TRIE_TABLE = "BrawlStarsTrieData2"
+BRAWL_TRIE_TABLE = "BrawlStarsTrieData3"
     
 def getTrieNodeItem(resultCompilerJSON, pathID, filterID, childrenPathIDs):
     item = {
@@ -16,9 +16,10 @@ def getTrieNodeItem(resultCompilerJSON, pathID, filterID, childrenPathIDs):
     return item
 
 # Updating with game data:
-def updateDatabaseTrie(basePath, matchDataObjects, filterID, dynamodb, isGlobal, skipToAddImmediately=False, pathIDUpdates=None):
+def updateDatabaseTrie(basePath, matchDataObjects, filterID, dynamodb, isGlobal, pathIDUpdates, skipToAddImmediately=False):
+    print(f"pathIDUpdates: {pathIDUpdates}, ", end="")
     if pathIDUpdates is None:
-        pathIDUpdates = getCompilersToUpdate(matchDataObjects, basePath, isGlobal)
+        pathIDUpdates = getCompilersToUpdate(matchDataObjects, basePath, isGlobal, {})
 
     def updatePath(pathID, resultCompiler, dynamodb):
         try:
@@ -227,7 +228,7 @@ def getPathIDsToUpdate(matchData, basePath, isGlobal):
 
     return result
 
-def getCompilersToUpdate(matchDataObjects, basePath, isGlobal, pathIDUpdates={}):
+def getCompilersToUpdate(matchDataObjects, basePath, isGlobal, pathIDUpdates):
     # Compile all of the matchDataObjects into a list of ResultCompilers that correspond to pathIDs
     for matchData in matchDataObjects:
         idsToUpdate = getPathIDsToUpdate(matchData, basePath, isGlobal)
