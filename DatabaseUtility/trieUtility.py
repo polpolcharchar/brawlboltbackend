@@ -17,7 +17,7 @@ def getTrieNodeItem(resultCompilerJSON, pathID, filterID, childrenPathIDs):
 
 # Updating with game data:
 def updateDatabaseTrie(basePath, matchDataObjects, filterID, dynamodb, isGlobal, pathIDUpdates, skipToAddImmediately=False):
-    print(f"pathIDUpdates: {pathIDUpdates}, ", end="")
+    # print(f"pathIDUpdates: {pathIDUpdates}, ", end="")
     if pathIDUpdates is None:
         pathIDUpdates = getCompilersToUpdate(matchDataObjects, basePath, isGlobal, {})
 
