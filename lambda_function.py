@@ -1,6 +1,7 @@
 import json
 import boto3
 from DatabaseUtility.accountVerificationUtility import handleAccountVerificationRequest, handleLogin, verifyToken
+from DatabaseUtility.brawlerListUtility import getCachedBrawlerList
 from DatabaseUtility.gamesUtility import queryGames
 from DatabaseUtility.itemUtility import decimalAndSetSerializer, deserializeDynamoDbItem
 from DatabaseUtility.playerUtility import beginTrackingPlayer, compileUncachedStats, getPlayerInfo, getPlayerOverview, updateStatsLastAccessed
@@ -42,8 +43,23 @@ def lambda_handler(event, context):
             "body": json.dumps({"error": "Invalid JSON body"}),
             "headers": CORS_HEADERS
         }
+    
+    if eventBody['type'] == "getBrawlerList":
+        cachedBrawlerList = getCachedBrawlerList(dynamodb)
 
-    if eventBody['type'] == "getRecentGlobalScanInfo":
+        if cachedBrawlerList is None:
+            return {
+                'statusCode': 500,
+                'body': json.dumps({'message': 'Failed to fetch brawler list.'}),
+                'headers': CORS_HEADERS,
+            }
+        return {
+            'statusCode': 200,
+            'body': json.dumps({'brawlers': cachedBrawlerList}),
+            'headers': CORS_HEADERS
+        }
+
+    elif eventBody['type'] == "getRecentGlobalScanInfo":
 
         response = dynamodb.query(
             TableName=BRAWL_TRIE_TABLE,

@@ -77,3 +77,19 @@ def getApiPlayerIconID(playerTag):
     playerInfo = getApiPlayerInfo(playerTag)
 
     return playerInfo["icon"]["id"]
+
+def getApiBrawlersList():
+    BRAWL_API_KEY = getSecret("BRAWL_API_KEY")
+
+    response = requests.get(
+            "https://api.brawlstars.com/v1/brawlers",
+            headers={"Authorization": f"Bearer {BRAWL_API_KEY}"}
+        )
+    
+    if response.status_code == 200:
+        return response.json().get("items", [])
+    else:
+        print(f"Failed to fetch brawlers list. HTTP Status Code: {response.status_code}")
+        print("Response Message:", response.text)
+        return []
+    
