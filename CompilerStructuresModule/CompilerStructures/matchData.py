@@ -22,9 +22,21 @@ class MatchData(Serializable):
         return getattr(self, key)
 
 def getMatchDataObjectsFromGame(game, playerTag, includeAllPlayers):
+    def getTypes(game, checkForLegendary=False):
+        typesResult = ["ranked"] if game['battle']['type'] == "soloRanked" else ["regular"]
 
-    def getType(game):
-        return "ranked" if game['battle']['type'] == "soloRanked" else "regular"
+        # check if any player is legendary 1 or higher
+        if checkForLegendary and game['battle']['type'] == 'soloRanked':
+            for teamIndex in range(2):
+                for player in game['battle']['teams'][teamIndex]:
+                    if 'brawler' in player:
+                        # For some reason, some players in ranked show their actual brawler trophies, instead of the rank value
+                        # Limit this to specifically between legendary 1 and pro so that real trophy counts don't trigger this
+                        if player['brawler']['trophies'] >= 16 and player['brawler']['trophies'] <= 22:
+                            typesResult.append("legendaryOrHigher")
+                            return typesResult
+        
+        return typesResult
     def isShowdownVictory(game):
         if not 'rank' in game['battle']:
             raise KeyError("This isn't a showdown game!")
@@ -85,17 +97,19 @@ def getMatchDataObjectsFromGame(game, playerTag, includeAllPlayers):
         result = []
         for player in playersOnThisTeam:
             if includeAllPlayers or player['tag'] == playerTag:
-                result.append(MatchData(
-                    game['event']['map'],
-                    getMode(game),
-                    player['brawler']['name'],
-                    result_type,
-                    is_star_player,
-                    True,
-                    None,
-                    getTrophyChange(game, player['tag']),
-                    getType(game)
-                ))
+                types = getTypes(game)
+                for type in types:
+                    result.append(MatchData(
+                        game['event']['map'],
+                        getMode(game),
+                        player['brawler']['name'],
+                        result_type,
+                        is_star_player,
+                        True,
+                        None,
+                        getTrophyChange(game, player['tag']),
+                        type
+                    ))
         
         return result
 
@@ -111,18 +125,20 @@ def getMatchDataObjectsFromGame(game, playerTag, includeAllPlayers):
 
             if includeAllPlayers or player['tag'] == playerTag:
                 for brawler in player['brawlers']:
-                    result.append(MatchData(
-                            game['event']['map'],
-                            getMode(game),
-                            brawler['name'],
-                            result_type,
-                            False,
-                            False,
-                            game['battle']['duration'],
-                            getTrophyChange(game, player['tag']),
-                            getType(game)
+                    types = getTypes(game)
+                    for type in types:
+                        result.append(MatchData(
+                                game['event']['map'],
+                                getMode(game),
+                                brawler['name'],
+                                result_type,
+                                False,
+                                False,
+                                game['battle']['duration'],
+                                getTrophyChange(game, player['tag']),
+                                type
+                            )
                         )
-                    )
             
         return result
 
@@ -142,18 +158,20 @@ def getMatchDataObjectsFromGame(game, playerTag, includeAllPlayers):
                 )
 
                 if includeAllPlayers or player['tag'] == playerTag:
-                    result.append(MatchData(
-                            game['event']['map'],
-                            getMode(game),
-                            player['brawler']['name'],
-                            result_type,
-                            is_star_player,
-                            game['battle']['starPlayer'] is not None,
-                            game['battle']['duration'],
-                            getTrophyChange(game, player['tag']),
-                            getType(game)
+                    types = getTypes(game, checkForLegendary=True)
+                    for type in types:
+                        result.append(MatchData(
+                                game['event']['map'],
+                                getMode(game),
+                                player['brawler']['name'],
+                                result_type,
+                                is_star_player,
+                                game['battle']['starPlayer'] is not None,
+                                game['battle']['duration'],
+                                getTrophyChange(game, player['tag']),
+                                type
+                            )
                         )
-                    )
 
         return result
 
