@@ -44,23 +44,8 @@ def lambda_handler(event, context):
             "body": json.dumps({"error": "Invalid JSON body"}),
             "headers": CORS_HEADERS
         }
-    
-    if eventBody['type'] == "getBrawlerList":
-        cachedBrawlerList = getCachedBrawlerList(dynamodb)
 
-        if cachedBrawlerList is None:
-            return {
-                'statusCode': 500,
-                'body': json.dumps({'message': 'Failed to fetch brawler list.'}),
-                'headers': CORS_HEADERS,
-            }
-        return {
-            'statusCode': 200,
-            'body': json.dumps({'brawlers': cachedBrawlerList}),
-            'headers': CORS_HEADERS
-        }
-
-    elif eventBody['type'] == "getBrawlerAndModeList":
+    if eventBody['type'] == "getBrawlerAndModeList":
         cachedBrawlerList = getCachedBrawlerList(dynamodb)
         cachedModeList = getCachedModeList(dynamodb)
 
