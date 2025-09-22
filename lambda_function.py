@@ -4,6 +4,7 @@ from DatabaseUtility.accountVerificationUtility import handleAccountVerification
 from DatabaseUtility.brawlerListUtility import getCachedBrawlerList
 from DatabaseUtility.gamesUtility import queryGames
 from DatabaseUtility.itemUtility import decimalAndSetSerializer, deserializeDynamoDbItem
+from DatabaseUtility.modeListUtility import getCachedModeList
 from DatabaseUtility.playerUtility import beginTrackingPlayer, compileUncachedStats, getPlayerInfo, getPlayerOverview, updateStatsLastAccessed
 from DatabaseUtility.trieUtility import BRAWL_TRIE_TABLE, fetchTrieData, fetchRecentTrieData
 
@@ -56,6 +57,22 @@ def lambda_handler(event, context):
         return {
             'statusCode': 200,
             'body': json.dumps({'brawlers': cachedBrawlerList}),
+            'headers': CORS_HEADERS
+        }
+
+    elif eventBody['type'] == "getBrawlerAndModeList":
+        cachedBrawlerList = getCachedBrawlerList(dynamodb)
+        cachedModeList = getCachedModeList(dynamodb)
+
+        if cachedBrawlerList is None or cachedModeList is None:
+            return {
+                'statusCode': 500,
+                'body': json.dumps({'message': 'Failed to fetch brawler or mode list.'}),
+                'headers': CORS_HEADERS,
+            }
+        return {
+            'statusCode': 200,
+            'body': json.dumps({'brawlers': cachedBrawlerList, 'modes': cachedModeList}),
             'headers': CORS_HEADERS
         }
 
