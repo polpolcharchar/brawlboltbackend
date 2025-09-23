@@ -32,7 +32,7 @@ def lambda_handler(event, context):
                 'Access-Control-Allow-Methods': 'OPTIONS,POST',
                 'Access-Control-Allow-Headers': 'Content-Type',
             },
-            "body": ""
+            "body": json.dumps({"redirect": "https://brawlbolt.com"})
         }
 
     # Parse JSON body safely
