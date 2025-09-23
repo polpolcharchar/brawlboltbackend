@@ -1,8 +1,8 @@
 # BrawlBolt Backend
 
-[brawlbolt.com](https://www.brawlbolt.com/) is a free, open source account tracker for Brawl Stars. It tracks every game you play and provides instant access to statistics more detailed than any other site. Also, global statistics allow for analysis of the overall meta for any brawler or mode.
+[brawlbolt.com](https://www.brawlbolt.com/) is a free open source account tracker for Brawl Stars. It tracks every game you play and provides instant access to statistics more detailed than any other site. Also, global statistics allow for analysis of the overall meta for any brawler or mode.
 
-This repository is a collection of utility and main scripts used to automate the functions of [brawlbolt.com](https://www.brawlbolt.com/). It serves multiple functions, and it has [multiple main scripts](#Major-Deployments). [BrawlBolt statistic compilation](#brawlbolt-statistic-compilation) allows for statistics to be available to the user in the same time, no matter what.
+This repository is a collection of utility used to automate the functions of [brawlbolt.com](https://www.brawlbolt.com/). It serves multiple functions, and it has [multiple main scripts](#Major-Deployments). [BrawlBolt statistic compilation](#brawlbolt-statistic-compilation) allows for statistics to be available to the user in constant time, no matter how many games are played.
 
 ## Major Deployments:
 
@@ -10,16 +10,16 @@ This repository handles website requests, player tracking, statistic compiling, 
 
 ### Website Backend:
 
-[lambda_function.py](lambda_function.py) is deployed to AWS Lambda via [AWS CodePipeline](https://aws.amazon.com/codepipeline/) and handles requests from [brawlbolt.com](https://www.brawlbolt.com/). In order to handle global statistics, player statistics, and account tracking, it utilizes much of this repository.
+[lambda_function.py](lambda_function.py) is a REST API deployed using AWS Lambda via [AWS CodePipeline](https://aws.amazon.com/codepipeline/) and handles requests to *api.brawlbolt.com*. In order to handle global statistics, player statistics, and account tracking, it uses much of this repository.
 It is able to handle requests for:
 
 - Recent global statistics: the most recently compiled winrates of each brawler in each mode
-- Past brawler-mode-level-specific global statistics: the winrates of Shelly in Brawl Ball over time
+- Past brawler-mode-type-specific global statistics: ex. the winrates of Shelly in Brawl Ball over time
 - Player data:
   - If the requested account is new to BrawlBolt, it will begin being tracked and have its most recent games compiled and statistics returned
   - If the requested account is already tracked, its compiled statistics will be returned
 
-To learn more about how the client interacts with this data, see the [BrawlBolt Web Repository](https://github.com/polpolcharchar/brawlbolt).
+To learn more about how the client interacts with this api, see the [BrawlBolt Web Repository](https://github.com/polpolcharchar/brawlbolt).
 
 ### Compiler:
 
@@ -29,16 +29,26 @@ To learn more about how the client interacts with this data, see the [BrawlBolt 
 
 [tracker.py](tracker.py) is run every hour to check for newly-played games. The [Brawl Stars API](https://developer.brawlstars.com/#/) provides access to each player's most recent 25 matches. Any game from the API that is newer than BrawlBolt's most recent game is saved by BrawlBolt. If a player plays more than 25 games over 60 minutes, there is a chance some of the games will be lost.
 
+In order to prevent the costly expense of searching the games database for all uncached games, games are stored in two separate databases, one for cached games and one for uncached games. Newly tracked games are put into the uncached database, and when [compiler.py](compiler.py) runs, games are moved into the compiled database. For more info, see [gamesUtility.py](DatabaseUtility/gamesUtility.py)
+
+### Brawler and Mode List Caching
+
+The Brawl Stars API doesn't provide any way to get a list of all modes. Because of this, BrawlBolt maintains a list of all past and present modes. Every 24 hours, [modeDatabaseUpdater.py](modeDatabaseUpdater.py) runs and saves all new modes to a database.
+
+Even though the Brawl Stars API does provide an endpoint with a list of all brawlers, brawlers are still cached. The Brawl Stars API must be accessed through a proxy, which increases latency. For this reason, brawlers are similarly cached by [brawlerDatabaseUpdater.py](brawlerDatabaseUpdater.py).
+
+The client can access these cached lists using the *getBrawlerAndModeList* API event type.
+
 ### Global Statistics:
 
-[Global Utility Functions](DatabaseUtility/globalUtility.py) are present in this repository. They handle data from BrawlBolt databases. The compiler that calculates these statistics is not public.
+The compiler that calculates these statistics is not public. It uses a lot of utility from [trieUtility.py](DatabaseUtility/trieUtility.py)
 
 
 ## BrawlBolt Statistic Compilation:
 
 ### Overview:
 
-With access to all of a player's games, it is possible to calculate any statistic. Just loop over each game, tracking the desired statistic as you go. However, what happens when a player has tracked 1,000 games? 1,000,000? As the number of tracked games increases, so too does the time it will take to compile. BrawlBolt compiles these statistics in a format that balances speed, memory, and precision. By compiling and saving data from games as they are played, the user will never be waiting, no matter how many games they have played.
+With access to all of a player's games, it is possible to calculate any statistic. Just loop over each game, tracking the desired statistic as you go. However, what happens when a player has tracked 1,000 games? 1,000,000? As the number of tracked games increases, so too does the time it will take to compile. BrawlBolt compiles these statistics in a format that balances speed, memory, and precision. By compiling and saving data from games as they are played, the user will never be left waiting long, no matter how many games they have played.
 
 ### What Data Should be Compiled?
 
@@ -56,7 +66,7 @@ For each match, the Brawl Stars API provides:
 > - Trophy Change (if applicable)
 > - Duration (if applicable)
 
-With this, BrawlBolt compiles the following statistics, as seen in [Result Tracker](/CompilerStructuresModule/CompilerStructures/resultTracker.py) and [Player Result Compiler](/CompilerStructuresModule/CompilerStructures/playerResultCompiler.py):
+With this, BrawlBolt compiles the following statistics, as seen in [resultTracker.py](/CompilerStructuresModule/CompilerStructures/resultTracker.py) and [resultCompiler.py](/CompilerStructuresModule/CompilerStructures/resultCompiler.py):
 
 > - Winrate
 > - Star Rate (the percentage of time a player gets Star Player)
@@ -74,9 +84,9 @@ In the previous section, six statistics to compile were established. These could
 - Brawler
 - Mode
 - Map
-- Regular vs Ranked
+- Match Type (regular, ranked, ranked legendary or higher)
 
-It is easy to access these values for each game, and it isn't too difficult to calculate statistics for each brawler, or each mode. But more specificy is definitely needed. The winrates for a brawler will be very different between regular games and ranked games. Thus, it is necessary to access statistics for combinations of these attributes. Despite greatly increasing complexity, BrawlBolt compiles statistics for any combination of these attributes (except global statistics, which do not include map).
+It is easy to access these values for each game, and it isn't too difficult to calculate statistics for each brawler, or each mode individually. But more specificy is definitely needed. The winrates for a brawler will be very different between regular games and ranked games. Thus, it is necessary to access statistics for combinations of these attributes. Despite greatly increasing complexity, BrawlBolt compiles statistics for any combination of these attributes (global statistics do not include map data).
 
 ## BrawlBolt Account Verification
 
@@ -86,4 +96,8 @@ With BrawlBolt tracking, every game an account plays is tracked. Only the accoun
 
 ### Logic
 
-BrawlBolt uses the public icon id of a Brawl Stars account to verify ownership. An account's icon is useful because it can be easily changed by only the owner of the account. To verify accounts, BrawlBolt sends the client a target icon to switch to. The user can then switch their Brawl Stars icon to what is being requested. When BrawlBolt observes the correct change, the user can be trusted. This process is repeated for security.
+BrawlBolt uses the public icon id of a Brawl Stars account to verify ownership. An account's icon is useful because it can be easily changed by only the owner of the account. To verify accounts, BrawlBolt sends the client a target icon to switch to. The user can then switch their Brawl Stars icon to what is being requested. When BrawlBolt observes the correct change, the user can be trusted. This process is repeated for security. For more info see [accountVerificationUtility.py](DatabaseUtility/accountVerificationUtility.py)
+
+### Login Security
+
+Once an account is trusted, a user can set a password for the account. This password is hashed and salted by the backend before being assigned to the account. Whenever the user needs to prove account ownership in the future, they can input their password, which is hashed and checked against the stored hash.
