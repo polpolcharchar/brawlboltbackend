@@ -89,6 +89,10 @@ def batchWriteToDynamoDB(items, tableName, dynamodb):
         print(f"Error writing batch to DynamoDB: {e.response['Error']['Message']}")
 
 def batchGetAllItems(table_name, keys, dynamodb, projection_expression=None):
+
+    if len(keys) == 0:
+        return []
+
     # AI
     request_items = {
         table_name: {
