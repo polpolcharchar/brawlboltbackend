@@ -89,25 +89,33 @@ def batchWriteToDynamoDB(items, tableName, dynamodb):
         print(f"Error writing batch to DynamoDB: {e.response['Error']['Message']}")
 
 def batchGetAllItems(table_name, keys, dynamodb, projection_expression=None):
-
     if len(keys) == 0:
         return []
 
-    # AI
-    request_items = {
-        table_name: {
-            'Keys': keys
-        }
-    }
-    if projection_expression:
-        request_items[table_name]['ProjectionExpression'] = projection_expression
-
     results = []
-    while request_items:
-        response = dynamodb.batch_get_item(RequestItems=request_items)
-        results.extend(response['Responses'].get(table_name, []))
 
-        unprocessed = response.get('UnprocessedKeys', {})
-        request_items = unprocessed if unprocessed else None
+    for i in range(0, len(keys), 100):
+        batch_keys = keys[i:i + 100]
+
+        request_items = {
+            table_name: {
+                'Keys': batch_keys
+            }
+        }
+
+        if projection_expression:
+            request_items[table_name]['ProjectionExpression'] = projection_expression
+
+        while request_items:
+            response = dynamodb.batch_get_item(
+                RequestItems=request_items
+            )
+
+            results.extend(
+                response['Responses'].get(table_name, [])
+            )
+
+            unprocessed = response.get('UnprocessedKeys', {})
+            request_items = unprocessed if unprocessed else None
 
     return results
